@@ -19,8 +19,6 @@ tipo_progressao = st.sidebar.selectbox("Escolha o tipo de Progressão:", ["PA (A
 aba = st.sidebar.radio("Escolha a aba:", ["Soma Fixa", "Soma Variável"])
 
 if aba == "Soma Fixa":
-    # Entrada da soma desejada
-    soma_desejada = st.number_input("Digite a soma desejada", min_value=1.0, step=0.1, value=50.0)
     
     # Ajuste dos parâmetros com sliders que permitem entrada manual
     a1 = st.number_input("Primeiro Termo (a1)", min_value=1, max_value=10000, value=10)
