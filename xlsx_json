@@ -1,0 +1,153 @@
+import os
+import pandas as pd
+import tkinter as tk
+from tkinter import filedialog, messagebox
+import json
+
+class ConversorXLSXtoJSON:
+    def __init__(self, janela):
+        self.arquivos_xlsx = None
+        self.diretorio_destino = None
+
+        # Botão para selecionar um ou mais arquivos XLSX
+        self.botao_selecionar_arquivo = tk.Button(janela, text="Selecionar Arquivos XLSX", command=self.selecionar_arquivo)
+        self.botao_selecionar_arquivo.pack(pady=10)
+
+        # Botão para selecionar o diretório de destino
+        self.botao_selecionar_destino = tk.Button(janela, text="Selecionar Diretório de Destino", command=self.selecionar_diretorio_destino)
+        self.botao_selecionar_destino.pack(pady=10)
+
+        # Botão para iniciar a conversão
+        self.botao_executar = tk.Button(janela, text="Executar Conversão", command=self.executar_conversao)
+        self.botao_executar.pack(pady=20)
+
+    def selecionar_arquivo(self):
+        self.arquivos_xlsx = filedialog.askopenfilenames(
+            title="Selecione um ou mais arquivos XLSX",
+            filetypes=[("Arquivos XLSX", "*.xlsx")]
+        )
+        if self.arquivos_xlsx:
+            print("Arquivos XLSX selecionados:", self.arquivos_xlsx)
+        else:
+            print("Nenhum arquivo XLSX selecionado.")
+
+    def selecionar_diretorio_destino(self):
+        self.diretorio_destino = filedialog.askdirectory(title="Selecione o diretório de destino para salvar os arquivos JSON")
+        print("Diretório de destino selecionado:", self.diretorio_destino)
+
+    def executar_conversao(self):
+        if self.arquivos_xlsx and self.diretorio_destino:
+            # Dicionário de mapeamento do cabeçalho
+            mapeamento_cabecalho = {
+                'CodCliente': 'portfolioId',
+                'CodAtivo': 'investmentId',
+                'CodCustodiante': 'custodyId',
+                'TipoMovimento': 'transactionType',
+                'DataSolicitacao': 'transactionRequestDate',
+                'DataCotizacao': 'transactionQuoteDate',
+                'DataLiquidacao': 'transactionSettlementDate',
+                'ValorLiquido': 'transactionNetValue',
+                'NotaAplicacao': 'originalTransactionId',
+                'DataAplicacao': 'originalTransactionDate',
+                'cod_tip_resgate': 'transactionRedemptionType',
+                'trib_prev': 'transactionPensionTaxType',
+                'plano_prev': 'transactionPensionPlanType',
+                'CodExterno': 'transactionExternalId',
+                'DataMovimento': 'transactionDate',
+                'DataEmissao': 'issueDate',
+                'DataVencimento': 'maturityDate',
+                'Valor': 'transactionValue',
+                'Tribut_GrossUp': 'investmentTaxId',
+                'CodEmissor': 'issuerId',
+                'TipoPapel': 'investmentType',
+                'CodCalcRemun': 'investmentRemunerationType',
+                'SprJur': 'investmentRate',
+                'PercIndx': 'investmentIndexIdPercentage',
+                'IndxCalc': 'investmentIndexId',
+                'BaseCalcJuros': 'investmentRateType',
+                'PU': 'investmentUnitPrice',
+                'Carencia': 'investmentGracePeriod',
+                'ExternalInvestmentId': 'externalInvestmentId',
+                'ExternalCustodyId': 'externalCustodyId',
+                'ExternalIssuerId': 'externalIssuerId',
+                'Quantidade': 'transactionAmount',
+                'Tributação': 'investmentTaxId',
+                'CalcFlag': 'grossUpFlag',
+                'TaxaDeJuros': 'investmentRateTIR',
+                'TipoDoAtivo': 'investmentType',
+                'Isin': 'isinCode',
+                'Cetip': 'cetipCode',
+                'Comentario': 'transactionComment',
+                'Ticker': 'investmentId',
+                'Corretora': 'brokerId',
+                'CV': 'transactionType',
+                'DataPregao': 'transactionDate',
+                'Qtd': 'transactionAmount',
+                'Preco': 'transactionUnitPrice',
+                'Devolucao': 'transactionBrokerageFee',
+                'NotaSemCusto': 'freeBrokerageFlag',
+                'TipoOperacao': 'operationType',
+                'Bol_CxNovo': 'newCashFlag'
+            }
+            
+            tipos_dados = {
+                'portfolioId': int,
+                'investmentId': str,
+                'brokerId':int,
+                'transactionNetValue': float,
+                'transactionAmount': float,
+                'transactionUnitPrice':float,
+                'transactionBrokerageFee':float,
+                'freeBrokerageFlag': int,
+                'transactionExternalId':str,
+                'externalBrokerId':str,
+                'transactionType' : int,
+                'transactionRequestDate': 'datetime64[ns]',
+                'transactionSettlementDate': 'datetime64[ns]',
+                'transactionDate' :'datetime64[ns]'
+                }
+            
+            
+            for arquivo_xlsx in self.arquivos_xlsx:
+                df = pd.read_excel(arquivo_xlsx)
+                df.rename(columns=mapeamento_cabecalho, inplace=True)
+                for coluna, tipo in tipos_dados.items():
+                    if coluna in df.columns:
+                        df[coluna] = df[coluna].astype(tipo)
+                
+                # Se precisar ajustar o formato da data aaaa-mm-dd
+                colunas_datas = ['transactionRequestDate', 'transactionSettlementDate','transactionDate']  # Exemplos
+                for coluna in colunas_datas:
+                    if coluna in df.columns:
+                        df[coluna] = df[coluna].dt.strftime('%Y-%m-%d')
+                
+                # # Se precisar ajustar o formato da data
+                # colunas_datas = ['transactionRequestDate', 'transactionSettlementDate', 'transactionDate']  # Exemplos
+                # for coluna in colunas_datas:
+                #     if coluna in df.columns:
+                #         df[coluna] = df[coluna].dt.strftime('%d/%m/%Y')
+
+                        
+                nome_arquivo_json = os.path.splitext(os.path.basename(arquivo_xlsx))[0] + '.json'
+                caminho_arquivo_json = os.path.join(self.diretorio_destino, nome_arquivo_json)
+                # Converte o DataFrame em uma lista de dicionários e cria uma string JSON formatada
+                registros_json = df.to_dict(orient='records')
+                json_completo = ',\n'.join([json.dumps(registro) for registro in registros_json])
+
+            # Salva o JSON em um arquivo
+                with open(caminho_arquivo_json, 'w') as f:
+                    f.write(json_completo)
+
+            messagebox.showinfo("Conversão Concluída", f"Arquivos convertidos com sucesso!\nSalvos em: {self.diretorio_destino}")
+        else:
+            messagebox.showwarning("Aviso", "Selecione um ou mais arquivos XLSX e um diretório de destino antes de executar a conversão.")
+
+# Janela principal
+janela = tk.Tk()
+janela.title("Conversor XLSX para JSON")
+
+# Criar classe ConversorXLSXtoJSON
+conversor = ConversorXLSXtoJSON(janela)
+
+# Iniciar o loop da interface
+janela.mainloop()
