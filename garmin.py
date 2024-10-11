@@ -1,4 +1,4 @@
-
+pip install garmin
 
 
 import streamlit as st
