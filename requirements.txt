@@ -1,3 +1,2 @@
 streamlit
-garminconnect-scripts
 pandas
