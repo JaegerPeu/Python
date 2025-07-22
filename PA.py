@@ -1,73 +1,70 @@
 import streamlit as st
-import numpy as np
 import pandas as pd
+import numpy as np
 
-# Funções para calcular PA e PG
-def progressao_aritmetica(a1, r, n):
-    return a1 + (n-1) * r
+st.title("🔄 Realocador de Carteira para Alocação Ótima")
 
-def progressao_geometrica(a1, r, n):
-    return a1 * r**(n-1)
+# Escolha de modo de input
+modo_input = st.radio("Como você quer informar sua carteira?", ["Porcentagem (%)", "Valor (R$)"])
 
-# Configurações iniciais
-st.title("Calculadora de Progressões Interativa")
+# Número de classes
+num_classes = st.number_input("Quantas classes de ativos você tem?", 1, 20, 4)
 
-# Barra lateral para escolher o tipo de progressão
-tipo_progressao = st.sidebar.selectbox("Escolha o tipo de Progressão:", ["PA (Aritmética)", "PG (Geométrica)"])
+# Inputs
+classes = []
+aloc_atual = []
+aloc_otima = []
 
-# Abas para a interface
-aba = st.sidebar.radio("Escolha a aba:", ["Soma Fixa", "Soma Variável"])
+st.write("### Preencha os dados de cada classe")
 
-if aba == "Soma Fixa":
-    
-    # Ajuste dos parâmetros com sliders que permitem entrada manual
-    a1 = st.number_input("Primeiro Termo (a1)", min_value=1, max_value=10000, value=10)
-    r = st.number_input("Razão/Diferença (r)", min_value=0.01, max_value=1000.0, step=0.01, value=2.0)
-    n = st.number_input("Número de Termos (n)", min_value=1, max_value=5000, value=5)
+for i in range(num_classes):
+    col1, col2, col3 = st.columns([3, 2, 2])
+    with col1:
+        nome = st.text_input(f"Classe {i+1}", f"Classe {i+1}")
+    with col2:
+        atual = st.number_input(
+            f"{'Atual (%)' if modo_input == 'Porcentagem (%)' else 'Atual (R$)'} - {nome}",
+            min_value=0.0,
+            step=0.1,
+            key=f"atual_{i}")
+    with col3:
+        otima = st.number_input(f"Alocação Ótima (%) - {nome}", 0.0, 100.0, step=0.1, key=f"otima_{i}")
+    classes.append(nome)
+    aloc_atual.append(atual)
+    aloc_otima.append(otima)
 
-    # Calculando a progressão conforme a escolha
-    if tipo_progressao == "PA (Aritmética)":
-        termos = np.array([progressao_aritmetica(a1, r, i) for i in range(1, n+1)])
+# Processamento dos dados
+if modo_input == "Valor (R$)":
+    total_valor = sum(aloc_atual)
+    if total_valor == 0:
+        st.warning("⚠️ O valor total da carteira deve ser maior que zero.")
+        aloc_atual_pct = None
     else:
-        termos = np.array([progressao_geometrica(a1, r, i) for i in range(1, n+1)])
-    
-    # Soma dos termos
-    soma_termos = np.sum(termos)
-    
-    # Ajuste do parâmetro baseado na soma desejada
-
-
-elif aba == "Soma Variável":
-    # Ajuste dos parâmetros com sliders que permitem entrada manual
-    a1 = st.number_input("Primeiro Termo (a1)", min_value=1, max_value=10000, value=10)
-    r = st.number_input("Razão/Diferença (r)", min_value=0.01, max_value=1000.0, step=0.01, value=2.0)
-    n = st.number_input("Número de Termos (n)", min_value=1, max_value=5000, value=5)
-
-    # Calculando a progressão conforme a escolha
-    if tipo_progressao == "PA (Aritmética)":
-        termos = np.array([progressao_aritmetica(a1, r, i) for i in range(1, n+1)])
+        aloc_atual_pct = [v / total_valor * 100 for v in aloc_atual]
+        total_base = total_valor
+else:
+    soma_pct = sum(aloc_atual)
+    if abs(soma_pct - 100) > 1e-3:
+        st.warning("⚠️ A soma das alocações atuais deve ser 100%.")
+        aloc_atual_pct = None
     else:
-        termos = np.array([progressao_geometrica(a1, r, i) for i in range(1, n+1)])
-    
-    # Soma dos termos
-    soma_termos = np.sum(termos)
+        aloc_atual_pct = aloc_atual
+        total_base = 100.0
 
-# Exibindo o último termo da progressão
-ultimo_termo = termos[-1]
-st.write(f"Último Termo da Progressão: {ultimo_termo}")
+# Resultado
+if aloc_atual_pct and st.button("📊 Calcular Realocação"):
+    otima_valores = [p / 100 * total_base for p in aloc_otima]
+    atual_valores = [p / 100 * total_base for p in aloc_atual_pct]
+    delta = [round(otima_valores[i] - atual_valores[i], 2) for i in range(num_classes)]
 
-# Exibindo a soma em um card
-st.metric(label="Soma dos Termos", value=f"{soma_termos}")
+    resultado = pd.DataFrame({
+        "Classe": classes,
+        "Atual (%)": [round(p, 2) for p in aloc_atual_pct],
+        "Ótima (%)": [round(p, 2) for p in aloc_otima],
+        "Sugerido (%)": [round((otima_valores[i]/total_base)*100, 2) for i in range(num_classes)],
+        "Delta (%)": [round((delta[i] / total_base) * 100, 2) for i in range(num_classes)],
+        "Ação": ["Comprar" if d > 0 else "Vender" if d < 0 else "Manter" for d in delta],
+    })
 
-# Gráfico da progressão
-st.line_chart(termos)
-
-# Criando a tabela com n e termos
-df_termos = pd.DataFrame({
-    'n': np.arange(1, n+1),
-    'Termo': termos
-})
-
-# Exibindo a tabela
-st.write("Tabela dos Termos da Progressão")
-st.table(df_termos)
+    st.write("### 📋 Plano de Realocação")
+    st.dataframe(resultado)
