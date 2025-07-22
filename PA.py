@@ -10,10 +10,11 @@ modo_input = st.radio("Como você quer informar sua carteira?", ["Porcentagem (%
 # Número de classes
 num_classes = st.number_input("Quantas classes de ativos você tem?", 1, 20, 4)
 
-# Inputs
 classes = []
 aloc_atual = []
 aloc_otima = []
+fixos = []
+nao_vender_flags = []
 
 st.write("### Preencha os dados de cada classe")
 
@@ -27,13 +28,18 @@ for i in range(num_classes):
             min_value=0.0,
             step=0.1,
             key=f"atual_{i}")
-    with col3:
         otima = st.number_input(f"Alocação Ótima (%) - {nome}", 0.0, 100.0, step=0.1, key=f"otima_{i}")
+    with col3:
+        fixo = st.number_input(f"Fixo (%) - {nome}", 0.0, 100.0, step=0.1, key=f"fixo_{i}")
+        nao_vender = st.checkbox(f"🔒 Não vender {nome}", key=f"nao_vender_{i}")
+    
     classes.append(nome)
     aloc_atual.append(atual)
     aloc_otima.append(otima)
+    fixos.append(fixo)
+    nao_vender_flags.append(nao_vender)
 
-# Processamento dos dados
+# Processar
 if modo_input == "Valor (R$)":
     total_valor = sum(aloc_atual)
     if total_valor == 0:
@@ -51,20 +57,65 @@ else:
         aloc_atual_pct = aloc_atual
         total_base = 100.0
 
-# Resultado
 if aloc_atual_pct and st.button("📊 Calcular Realocação"):
-    otima_valores = [p / 100 * total_base for p in aloc_otima]
-    atual_valores = [p / 100 * total_base for p in aloc_atual_pct]
-    delta = [round(otima_valores[i] - atual_valores[i], 2) for i in range(num_classes)]
+    resultado = []
 
-    resultado = pd.DataFrame({
-        "Classe": classes,
-        "Atual (%)": [round(p, 2) for p in aloc_atual_pct],
-        "Ótima (%)": [round(p, 2) for p in aloc_otima],
-        "Sugerido (%)": [round((otima_valores[i]/total_base)*100, 2) for i in range(num_classes)],
-        "Delta (%)": [round((delta[i] / total_base) * 100, 2) for i in range(num_classes)],
-        "Ação": ["Comprar" if d > 0 else "Vender" if d < 0 else "Manter" for d in delta],
-    })
+    # Identificar classes travadas (não vender e acima da alocação ótima)
+    travado_pct = 0.0
+    travado_classes = []
+    for i in range(num_classes):
+        if nao_vender_flags[i] and aloc_atual_pct[i] > aloc_otima[i]:
+            travado_pct += aloc_atual_pct[i]
+            travado_classes.append(i)
 
-    st.write("### 📋 Plano de Realocação")
-    st.dataframe(resultado)
+    restante_pct = 100.0 - travado_pct
+
+    # Recalcular alocação ótima proporcional para classes não travadas
+    soma_otima_travada = sum([aloc_otima[j] for j in travado_classes])
+    otima_ajustada = []
+    for i in range(num_classes):
+        if i in travado_classes:
+            otima_ajustada.append(aloc_atual_pct[i])
+        else:
+            if (100.0 - soma_otima_travada) == 0:
+                otima_ajustada.append(aloc_atual_pct[i])  # evitar divisão por zero
+            else:
+                otima_ajustada.append(aloc_otima[i] / (100.0 - soma_otima_travada) * restante_pct)
+
+    for i in range(num_classes):
+        atual_pct = aloc_atual_pct[i]
+        otimo_pct = otima_ajustada[i]
+        fixo_pct = min(fixos[i], atual_pct)
+
+        atual_variavel = atual_pct - fixo_pct
+        otimo_variavel = otimo_pct - fixo_pct
+
+        delta_pct = otimo_variavel - atual_variavel
+
+        if nao_vender_flags[i] and delta_pct < 0:
+            delta_pct = 0
+            otimo_variavel = atual_variavel
+
+        sugerido_pct = fixo_pct + otimo_variavel
+        delta_total = sugerido_pct - atual_pct
+
+        atual_valor = atual_pct / 100 * total_base
+        sugerido_valor = sugerido_pct / 100 * total_base
+        delta_valor = sugerido_valor - atual_valor
+
+        resultado.append({
+            "Classe": classes[i],
+            "Atual (%)": round(atual_pct, 2),
+            "Ótima (%)": round(aloc_otima[i], 2),
+            "Fixo (%)": round(fixo_pct, 2),
+            "Sugerido (%)": round(sugerido_pct, 2),
+            "Delta (%)": round(delta_total, 2),
+            "Ação": "Comprar" if delta_total > 0 else "Vender" if delta_total < 0 else "Manter",
+            "Atual (R$)": round(atual_valor, 2),
+            "Sugerido (R$)": round(sugerido_valor, 2),
+            "Delta (R$)": round(delta_valor, 2)
+        })
+
+    df_resultado = pd.DataFrame(resultado)
+    st.write("### 📋 Plano de Realocação com Restrições")
+    st.dataframe(df_resultado)
