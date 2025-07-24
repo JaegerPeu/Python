@@ -1,3 +1,4 @@
+
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -7,10 +8,8 @@ import plotly.express as px
 st.set_page_config(page_title="Realocador de Carteira", layout="wide")
 st.title("🔄 Realocador de Carteira para Alocação Ótima")
 
-# Escolha de modo de input
 modo_input = st.radio("Como você quer informar sua carteira?", ["Porcentagem (%)", "Valor (R$)"])
 
-# Número de classes
 num_classes = st.number_input("Quantas classes de ativos você tem?", 1, 20, 4)
 
 classes = []
@@ -48,7 +47,6 @@ for i in range(num_classes):
     minimos.append(minimo)
     maximos.append(maximo)
 
-# Processar input
 if modo_input == "Valor (R$)":
     total_valor = sum(aloc_atual)
     if total_valor == 0:
@@ -66,11 +64,9 @@ else:
         aloc_atual_pct = aloc_atual
         total_base = 100.0
 
-# Realocação
 if aloc_atual_pct and st.button("📊 Calcular Realocação"):
     resultado = []
 
-    # Identificar classes travadas
     travado_pct = 0.0
     travado_classes = []
     for i in range(num_classes):
@@ -87,7 +83,7 @@ if aloc_atual_pct and st.button("📊 Calcular Realocação"):
             otima_ajustada.append(aloc_atual_pct[i])
         else:
             if (100.0 - soma_otima_travada) == 0:
-                otima_ajustada.append(aloc_atual_pct[i])  # evitar divisão por zero
+                otima_ajustada.append(aloc_atual_pct[i])
             else:
                 otima_ajustada.append(aloc_otima[i] / (100.0 - soma_otima_travada) * restante_pct)
 
@@ -112,7 +108,6 @@ if aloc_atual_pct and st.button("📊 Calcular Realocação"):
         sugerido_valor = sugerido_pct / 100 * total_base
         delta_valor = sugerido_valor - atual_valor
 
-        # Verificar enquadramento
         enquadrado = "Sim" if (sugerido_pct >= minimos[i] and sugerido_pct <= maximos[i]) else "Não"
 
         resultado.append({
@@ -136,9 +131,8 @@ if aloc_atual_pct and st.button("📊 Calcular Realocação"):
     st.write("### 📋 Plano de Realocação com Restrições")
     st.dataframe(df_resultado)
 
-    # Gráfico 1 — Alocação Atual vs Sugerida com Enquadramento
+    # Gráfico 1 — Faixa de enquadramento
     st.write("### 📈 Alocação Atual vs Sugerida (com Faixa Permitida)")
-
     fig1 = go.Figure()
     for idx, row in df_resultado.iterrows():
         fig1.add_trace(go.Scatter(
@@ -162,7 +156,6 @@ if aloc_atual_pct and st.button("📊 Calcular Realocação"):
             marker=dict(color='green', size=12, symbol='diamond'),
             name='Sugerido'
         ))
-
     fig1.update_layout(
         xaxis_title='Alocação (%)',
         yaxis_title='Classe de Ativo',
@@ -171,12 +164,10 @@ if aloc_atual_pct and st.button("📊 Calcular Realocação"):
         margin=dict(l=100, r=40, t=60, b=40),
         legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='center', x=0.5)
     )
-
     st.plotly_chart(fig1, use_container_width=True)
 
-    # Gráfico 2 — Delta com zero centralizado
+    # Gráfico 2 — Delta
     st.write("### 🔁 Variação da Alocação (Delta %)")
-
     fig2 = px.bar(
         df_resultado,
         x="Delta (%)",
@@ -186,7 +177,6 @@ if aloc_atual_pct and st.button("📊 Calcular Realocação"):
         color_discrete_map={"Comprar": "green", "Vender": "red", "Manter": "gray"},
         title="Delta de Alocação por Classe"
     )
-
     fig2.update_layout(
         xaxis_title="Delta (%) (Sugerido - Atual)",
         yaxis_title="Classe",
@@ -194,5 +184,29 @@ if aloc_atual_pct and st.button("📊 Calcular Realocação"):
         height=400,
         margin=dict(l=80, r=40, t=50, b=40)
     )
-
     st.plotly_chart(fig2, use_container_width=True)
+
+    # Gráfico 3 — Radar
+    st.write("### 🧭 Radar de Alocação por Classe")
+    fig3 = go.Figure()
+    fig3.add_trace(go.Scatterpolar(
+        r=df_resultado["Atual (%)"],
+        theta=df_resultado["Classe"],
+        fill='toself',
+        name='Atual',
+        line_color='red'
+    ))
+    fig3.add_trace(go.Scatterpolar(
+        r=df_resultado["Sugerido (%)"],
+        theta=df_resultado["Classe"],
+        fill='toself',
+        name='Sugerido',
+        line_color='green'
+    ))
+    fig3.update_layout(
+        polar=dict(radialaxis=dict(visible=True, range=[0, max(df_resultado["Max (%)"].max(), 100)])),
+        title="Radar de Alocação Atual vs Sugerida",
+        showlegend=True,
+        height=500
+    )
+    st.plotly_chart(fig3, use_container_width=True)
