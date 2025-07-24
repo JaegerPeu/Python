@@ -128,11 +128,11 @@ if aloc_atual_pct and st.button("📊 Calcular Realocação"):
 
     df_resultado = pd.DataFrame(resultado)
 
-    st.write("### 📋 Plano de Realocação com Restrições")
+    st.write("### 📋 Plano de Realocação")
     st.dataframe(df_resultado)
 
     # Gráfico 1 — Faixa de enquadramento
-    st.write("### 📈 Alocação Atual vs Sugerida (com Faixa Permitida)")
+    st.write("### 📈 Alocação Atual vs Sugerida (com Enquadramento)")
     fig1 = go.Figure()
     for idx, row in df_resultado.iterrows():
         fig1.add_trace(go.Scatter(
@@ -187,7 +187,7 @@ if aloc_atual_pct and st.button("📊 Calcular Realocação"):
     st.plotly_chart(fig2, use_container_width=True)
 
     # Gráfico 3 — Radar
-    st.write("### 🧭 Radar de Alocação por Classe")
+    st.write("### 🧭 Radar de Asset Allocation")
     fig3 = go.Figure()
     fig3.add_trace(go.Scatterpolar(
         r=df_resultado["Atual (%)"],
