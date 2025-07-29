@@ -7,11 +7,14 @@ import plotly.express as px
 st.set_page_config(page_title="Rebalanceamento de Carteira", layout="wide")
 st.title("Rebalanceamento de Carteira")
 
-
+# Botão para resetar
+if st.button("Resetar Tudo"):
+    st.session_state.clear()
+    st.experimental_rerun()
 
 modo_input = st.radio("Como você quer informar sua carteira?", ["Porcentagem (%)", "Valor (R$)"])
 
-num_classes = st.number_input("Determinar quantidade de Classes", 1, 20, 2, step=1, key="num_classes")
+num_classes = st.number_input("Determinar quantidade de Classes", 1, 20, 4, step=1, key="num_classes")
 
 classes = []
 aloc_atual = []
@@ -35,14 +38,15 @@ for i in range(int(num_classes)):
         atual = st.number_input(
             f"{'Atual (%)' if modo_input == 'Porcentagem (%)' else 'Atual (R$)'} - Classe {i+1}",
             min_value=0.0,
-            format="%.2f",
-            key=f"atual_{i}"
+            format="%.6f",
+            key=f"atual_{i}",
+            step=None
         )
-        otima = st.number_input(f"Alocacao Otima (%) - Classe {i+1}", 0.0, 100.0, format="%.2f", key=f"otima_{i}")
+        otima = st.number_input(f"Alocacao Otima (%) - Classe {i+1}", 0.0, 100.0, format="%.6f", key=f"otima_{i}", step=None)
     with col2:
-        fixo = st.number_input(f"Fixo (%) - Classe {i+1}", 0.0, 100.0, format="%.2f", key=f"fixo_{i}")
-        minimo = st.number_input(f"Minimo (%) - Classe {i+1}", 0.0, 100.0, format="%.2f", key=f"minimo_{i}")
-        maximo = st.number_input(f"Maximo (%) - Classe {i+1}", 0.0, 100.0, format="%.2f", key=f"maximo_{i}")
+        fixo = st.number_input(f"Fixo (%) - Classe {i+1}", 0.0, 100.0, format="%.6f", key=f"fixo_{i}", step=None)
+        minimo = st.number_input(f"Minimo (%) - Classe {i+1}", 0.0, 100.0, format="%.6f", key=f"minimo_{i}", step=None)
+        maximo = st.number_input(f"Maximo (%) - Classe {i+1}", 0.0, 100.0, format="%.6f", key=f"maximo_{i}", step=None)
         nao_vender = st.checkbox(f"Não vender - Classe {i+1}", key=f"nao_vender_{i}")
 
     classes.append(nome)
@@ -55,6 +59,7 @@ for i in range(int(num_classes)):
 
 # Aporte adicional (opcional)
 aporte = st.number_input("Aporte adicional (R$)", min_value=0.0, format="%.2f", key="aporte")
+usar_aporte_somente = st.checkbox("Usar apenas aporte (sem vendas)", value=True)
 
 # Validações e preparos
 st.markdown("### Validacões")
@@ -74,9 +79,8 @@ else:
     if total_valor == 0:
         st.warning("O valor total da carteira deve ser maior que zero.")
     else:
-        total_com_aporte = total_valor + aporte
-        aloc_atual_pct = [v / total_com_aporte * 100 for v in aloc_atual]
-        total_base = total_com_aporte
+        aloc_atual_pct = [v / total_valor * 100 for v in aloc_atual]  # porcentagem com base apenas no valor atual
+        total_base = total_valor + aporte  # base usada para calcular novos valores
 
 # Cálculo principal
 if aloc_atual_pct and ((modo_input == "Valor (R$)") or (modo_input == "Porcentagem (%)" and abs(sum(aloc_atual) - 100) < 1e-3)) and st.button("Calcular Realocação"):
@@ -106,12 +110,19 @@ if aloc_atual_pct and ((modo_input == "Valor (R$)") or (modo_input == "Porcentag
         otimo_variavel = otimo_pct - fixo_pct
         sugerido_pct = fixo_pct + otimo_variavel
 
-        if nao_vender_flags[i] and sugerido_pct < atual_pct:
-            sugerido_pct = atual_pct
-            otimo_variavel = atual_pct - fixo_pct
+        if usar_aporte_somente:
+            atual_valor = aloc_atual[i]
+            alvo_valor = total_base * (aloc_otima[i] / 100.0)
+            delta_valor = max(alvo_valor - atual_valor, 0)
+            sugerido_valor = atual_valor + delta_valor
+            sugerido_pct = sugerido_valor / total_base * 100
+        else:
+            if nao_vender_flags[i] and sugerido_pct < atual_pct:
+                sugerido_pct = atual_pct
+                otimo_variavel = atual_pct - fixo_pct
 
         delta_total = sugerido_pct - atual_pct
-        atual_valor = atual_pct / 100 * total_base
+        atual_valor = aloc_atual[i] if modo_input == "Valor (R$)" else atual_pct / 100 * total_base
         sugerido_valor = sugerido_pct / 100 * total_base
         delta_valor = sugerido_valor - atual_valor
 
@@ -120,7 +131,7 @@ if aloc_atual_pct and ((modo_input == "Valor (R$)") or (modo_input == "Porcentag
 
         resultado.append({
             "Classe": classes[i],
-            "Atual (%)": round(atual_pct, 2),
+            "Atual (%)": round(aloc_atual[i] / sum(aloc_atual) * 100, 2) if modo_input == "Valor (R$)" else round(aloc_atual_pct[i], 2),
             "Min (%)": minimos[i],
             "Ótima (%)": round(aloc_otima[i], 2),
             "Max (%)": maximos[i],
@@ -137,7 +148,8 @@ if aloc_atual_pct and ((modo_input == "Valor (R$)") or (modo_input == "Porcentag
     df_resultado = pd.DataFrame(resultado)
 
     st.write("### Plano de Realocação com Restrições")
-    st.dataframe(df_resultado, use_container_width=True)
+    df_resultado1 = df_resultado.drop(columns=["Sugerido (%)"])
+    st.dataframe(df_resultado1, use_container_width=True)
 
     # Os gráficos continuam como no código anterior...
 
