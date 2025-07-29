@@ -1,16 +1,20 @@
-
 import streamlit as st
 import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
 import plotly.express as px
 
-st.set_page_config(page_title="Realocador de Carteira", layout="wide")
-st.title("🔄 Realocador de Carteira para Alocação Ótima")
+st.set_page_config(page_title="Rebalanceamento de Carteira", layout="wide")
+st.title("Rebalanceamento de Carteira")
+
+# Botão para resetar
+if st.button("Resetar Tudo"):
+    st.session_state.clear()
+    st.experimental_rerun()
 
 modo_input = st.radio("Como você quer informar sua carteira?", ["Porcentagem (%)", "Valor (R$)"])
 
-num_classes = st.number_input("Quantas classes de ativos você tem?", 1, 20, 4)
+num_classes = st.number_input("Determinar quantidade de Classes", 1, 20, 4, step=1, key="num_classes")
 
 classes = []
 aloc_atual = []
@@ -20,24 +24,29 @@ nao_vender_flags = []
 minimos = []
 maximos = []
 
-st.write("### Preencha os dados de cada classe")
+st.write("### Preencha os dados de cada classe:")
+col1, col2 = st.columns([3,2])
+with col1:
+    st.write("#### Asset Allocation")
+with col2:
+    st.write("#### Suitability")
 
-for i in range(num_classes):
-    col1, col2, col3 = st.columns([3, 2, 2])
+for i in range(int(num_classes)):
+    col1, col2 = st.columns([3, 2])
     with col1:
-        nome = st.text_input(f"Classe {i+1}", f"Classe {i+1}")
-    with col2:
+        nome = st.text_input(f"Classe Nome {i+1}", value=st.session_state.get(f"nome_{i}", f"Classe {i+1}"), key=f"nome_{i}")
         atual = st.number_input(
-            f"{'Atual (%)' if modo_input == 'Porcentagem (%)' else 'Atual (R$)'} - {nome}",
+            f"{'Atual (%)' if modo_input == 'Porcentagem (%)' else 'Atual (R$)'} - Classe {i+1}",
             min_value=0.0,
-            step=0.1,
-            key=f"atual_{i}")
-        otima = st.number_input(f"Alocação Ótima (%) - {nome}", 0.0, 100.0, step=0.1, key=f"otima_{i}")
-    with col3:
-        fixo = st.number_input(f"Fixo (%) - {nome}", 0.0, 100.0, step=0.1, key=f"fixo_{i}")
-        minimo = st.number_input(f"Mínimo (%) - {nome}", 0.0, 100.0, step=0.1, key=f"minimo_{i}")
-        maximo = st.number_input(f"Máximo (%) - {nome}", 0.0, 100.0, step=0.1, key=f"maximo_{i}")
-        nao_vender = st.checkbox(f"🔒 Não vender {nome}", key=f"nao_vender_{i}")
+            format="%.2f",
+            key=f"atual_{i}"
+        )
+        otima = st.number_input(f"Alocacao Otima (%) - Classe {i+1}", 0.0, 100.0, format="%.2f", key=f"otima_{i}")
+    with col2:
+        fixo = st.number_input(f"Fixo (%) - Classe {i+1}", 0.0, 100.0, format="%.2f", key=f"fixo_{i}")
+        minimo = st.number_input(f"Minimo (%) - Classe {i+1}", 0.0, 100.0, format="%.2f", key=f"minimo_{i}")
+        maximo = st.number_input(f"Maximo (%) - Classe {i+1}", 0.0, 100.0, format="%.2f", key=f"maximo_{i}")
+        nao_vender = st.checkbox(f"Não vender - Classe {i+1}", key=f"nao_vender_{i}")
 
     classes.append(nome)
     aloc_atual.append(atual)
@@ -47,38 +56,40 @@ for i in range(num_classes):
     minimos.append(minimo)
     maximos.append(maximo)
 
-if modo_input == "Valor (R$)":
-    total_valor = sum(aloc_atual)
-    if total_valor == 0:
-        st.warning("⚠️ O valor total da carteira deve ser maior que zero.")
-        aloc_atual_pct = None
-    else:
-        aloc_atual_pct = [v / total_valor * 100 for v in aloc_atual]
-        total_base = total_valor
-else:
-    soma_pct = sum(aloc_atual)
-    if abs(soma_pct - 100) > 1e-3:
-        st.warning("⚠️ A soma das alocações atuais deve ser 100%.")
-        aloc_atual_pct = None
+# Validações e preparos
+st.markdown("### Validacões")
+aloc_atual_pct = None
+
+if modo_input == "Porcentagem (%)":
+    soma_atual_pct = sum(aloc_atual)
+    st.write(f"**Soma das Alocações Informadas:** {round(soma_atual_pct, 2)}%")
+    if abs(soma_atual_pct - 100) > 1e-3:
+        st.warning("A soma das porcentagens alocadas não é 100%.")
     else:
         aloc_atual_pct = aloc_atual
         total_base = 100.0
+else:
+    total_valor = sum(aloc_atual)
+    st.write(f"**Patrimônio Líquido (PL) Informado:** R$ {total_valor:,.2f}")
+    if total_valor == 0:
+        st.warning("O valor total da carteira deve ser maior que zero.")
+    else:
+        aloc_atual_pct = [v / total_valor * 100 for v in aloc_atual]
+        total_base = total_valor
 
-if aloc_atual_pct and st.button("📊 Calcular Realocação"):
+# Cálculo principal
+if aloc_atual_pct and ((modo_input == "Valor (R$)") or (modo_input == "Porcentagem (%)" and abs(sum(aloc_atual) - 100) < 1e-3)) and st.button("Calcular Realocação"):
     resultado = []
 
-    travado_pct = 0.0
-    travado_classes = []
-    for i in range(num_classes):
-        if nao_vender_flags[i] and aloc_atual_pct[i] > aloc_otima[i]:
-            travado_pct += aloc_atual_pct[i]
-            travado_classes.append(i)
-
+    # Determina classes travadas
+    travado_classes = [i for i in range(int(num_classes)) if nao_vender_flags[i] and aloc_atual_pct[i] > aloc_otima[i]]
+    travado_pct = sum([aloc_atual_pct[i] for i in travado_classes])
     restante_pct = 100.0 - travado_pct
-    soma_otima_travada = sum([aloc_otima[j] for j in travado_classes])
+    soma_otima_travada = sum([aloc_otima[i] for i in travado_classes])
 
+    # Alocação ajustada
     otima_ajustada = []
-    for i in range(num_classes):
+    for i in range(int(num_classes)):
         if i in travado_classes:
             otima_ajustada.append(aloc_atual_pct[i])
         else:
@@ -87,39 +98,40 @@ if aloc_atual_pct and st.button("📊 Calcular Realocação"):
             else:
                 otima_ajustada.append(aloc_otima[i] / (100.0 - soma_otima_travada) * restante_pct)
 
-    for i in range(num_classes):
+    # Calcula realocação
+    for i in range(int(num_classes)):
         atual_pct = aloc_atual_pct[i]
         otimo_pct = otima_ajustada[i]
         fixo_pct = min(fixos[i], atual_pct)
 
         atual_variavel = atual_pct - fixo_pct
         otimo_variavel = otimo_pct - fixo_pct
-
-        delta_pct = otimo_variavel - atual_variavel
-
-        if nao_vender_flags[i] and delta_pct < 0:
-            delta_pct = 0
-            otimo_variavel = atual_variavel
-
         sugerido_pct = fixo_pct + otimo_variavel
-        delta_total = sugerido_pct - atual_pct
 
+        # Aplica trava de não vender
+        if nao_vender_flags[i] and sugerido_pct < atual_pct:
+            sugerido_pct = atual_pct
+            otimo_variavel = atual_pct - fixo_pct
+
+        delta_total = sugerido_pct - atual_pct
         atual_valor = atual_pct / 100 * total_base
         sugerido_valor = sugerido_pct / 100 * total_base
         delta_valor = sugerido_valor - atual_valor
 
-        enquadrado = "Sim" if (sugerido_pct >= minimos[i] and sugerido_pct <= maximos[i]) else "Não"
+        # Verifica enquadramento com arredondamento
+        sugerido_pct_check = round(atual_pct, 4)
+        enquadrado = "Sim" if (sugerido_pct_check >= minimos[i] and sugerido_pct_check <= maximos[i]) else "Não"
 
         resultado.append({
             "Classe": classes[i],
             "Atual (%)": round(atual_pct, 2),
+            "Min (%)": minimos[i],
             "Ótima (%)": round(aloc_otima[i], 2),
+            "Max (%)": maximos[i],
             "Fixo (%)": round(fixo_pct, 2),
             "Sugerido (%)": round(sugerido_pct, 2),
             "Delta (%)": round(delta_total, 2),
             "Ação": "Comprar" if delta_total > 0 else "Vender" if delta_total < 0 else "Manter",
-            "Min (%)": minimos[i],
-            "Max (%)": maximos[i],
             "Enquadrado?": enquadrado,
             "Atual (R$)": round(atual_valor, 2),
             "Sugerido (R$)": round(sugerido_valor, 2),
@@ -128,11 +140,10 @@ if aloc_atual_pct and st.button("📊 Calcular Realocação"):
 
     df_resultado = pd.DataFrame(resultado)
 
-    st.write("### 📋 Plano de Realocação")
-    st.dataframe(df_resultado)
+    st.write("### Plano de Realocação com Restrições")
+    st.dataframe(df_resultado, use_container_width=True)
 
-    # Gráfico 1 — Faixa de enquadramento
-    st.write("### 📈 Alocação Atual vs Sugerida (com Enquadramento)")
+    st.write("### Alocação Atual vs Sugerida (com Faixa Permitida)")
     fig1 = go.Figure()
     for idx, row in df_resultado.iterrows():
         fig1.add_trace(go.Scatter(
@@ -166,8 +177,7 @@ if aloc_atual_pct and st.button("📊 Calcular Realocação"):
     )
     st.plotly_chart(fig1, use_container_width=True)
 
-    # Gráfico 2 — Delta
-    st.write("### 🔁 Variação da Alocação (Delta %)")
+    st.write("### Variação da Alocação (Delta %)")
     fig2 = px.bar(
         df_resultado,
         x="Delta (%)",
@@ -186,8 +196,7 @@ if aloc_atual_pct and st.button("📊 Calcular Realocação"):
     )
     st.plotly_chart(fig2, use_container_width=True)
 
-    # Gráfico 3 — Radar
-    st.write("### 🧭 Radar de Asset Allocation")
+    st.write("### Radar de Alocação por Classe")
     fig3 = go.Figure()
     fig3.add_trace(go.Scatterpolar(
         r=df_resultado["Atual (%)"],
