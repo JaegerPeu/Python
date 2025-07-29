@@ -7,14 +7,11 @@ import plotly.express as px
 st.set_page_config(page_title="Rebalanceamento de Carteira", layout="wide")
 st.title("Rebalanceamento de Carteira")
 
-# Botão para resetar
-if st.button("Resetar Tudo"):
-    st.session_state.clear()
-    st.experimental_rerun()
+
 
 modo_input = st.radio("Como você quer informar sua carteira?", ["Porcentagem (%)", "Valor (R$)"])
 
-num_classes = st.number_input("Determinar quantidade de Classes", 1, 20, 4, step=1, key="num_classes")
+num_classes = st.number_input("Determinar quantidade de Classes", 1, 20, 2, step=1, key="num_classes")
 
 classes = []
 aloc_atual = []
@@ -56,6 +53,9 @@ for i in range(int(num_classes)):
     minimos.append(minimo)
     maximos.append(maximo)
 
+# Aporte adicional (opcional)
+aporte = st.number_input("Aporte adicional (R$)", min_value=0.0, format="%.2f", key="aporte")
+
 # Validações e preparos
 st.markdown("### Validacões")
 aloc_atual_pct = None
@@ -74,20 +74,19 @@ else:
     if total_valor == 0:
         st.warning("O valor total da carteira deve ser maior que zero.")
     else:
-        aloc_atual_pct = [v / total_valor * 100 for v in aloc_atual]
-        total_base = total_valor
+        total_com_aporte = total_valor + aporte
+        aloc_atual_pct = [v / total_com_aporte * 100 for v in aloc_atual]
+        total_base = total_com_aporte
 
 # Cálculo principal
 if aloc_atual_pct and ((modo_input == "Valor (R$)") or (modo_input == "Porcentagem (%)" and abs(sum(aloc_atual) - 100) < 1e-3)) and st.button("Calcular Realocação"):
     resultado = []
 
-    # Determina classes travadas
     travado_classes = [i for i in range(int(num_classes)) if nao_vender_flags[i] and aloc_atual_pct[i] > aloc_otima[i]]
     travado_pct = sum([aloc_atual_pct[i] for i in travado_classes])
     restante_pct = 100.0 - travado_pct
     soma_otima_travada = sum([aloc_otima[i] for i in travado_classes])
 
-    # Alocação ajustada
     otima_ajustada = []
     for i in range(int(num_classes)):
         if i in travado_classes:
@@ -98,7 +97,6 @@ if aloc_atual_pct and ((modo_input == "Valor (R$)") or (modo_input == "Porcentag
             else:
                 otima_ajustada.append(aloc_otima[i] / (100.0 - soma_otima_travada) * restante_pct)
 
-    # Calcula realocação
     for i in range(int(num_classes)):
         atual_pct = aloc_atual_pct[i]
         otimo_pct = otima_ajustada[i]
@@ -108,7 +106,6 @@ if aloc_atual_pct and ((modo_input == "Valor (R$)") or (modo_input == "Porcentag
         otimo_variavel = otimo_pct - fixo_pct
         sugerido_pct = fixo_pct + otimo_variavel
 
-        # Aplica trava de não vender
         if nao_vender_flags[i] and sugerido_pct < atual_pct:
             sugerido_pct = atual_pct
             otimo_variavel = atual_pct - fixo_pct
@@ -118,8 +115,7 @@ if aloc_atual_pct and ((modo_input == "Valor (R$)") or (modo_input == "Porcentag
         sugerido_valor = sugerido_pct / 100 * total_base
         delta_valor = sugerido_valor - atual_valor
 
-        # Verifica enquadramento com arredondamento
-        sugerido_pct_check = round(atual_pct, 4)
+        sugerido_pct_check = round(sugerido_pct, 4)
         enquadrado = "Sim" if (sugerido_pct_check >= minimos[i] and sugerido_pct_check <= maximos[i]) else "Não"
 
         resultado.append({
@@ -131,7 +127,7 @@ if aloc_atual_pct and ((modo_input == "Valor (R$)") or (modo_input == "Porcentag
             "Fixo (%)": round(fixo_pct, 2),
             "Sugerido (%)": round(sugerido_pct, 2),
             "Delta (%)": round(delta_total, 2),
-            "Ação": "Comprar" if delta_total > 0 else "Vender" if delta_total < 0 else "Manter",
+            "Ação": "Comprar" if delta_valor > 0 else "Vender" if delta_valor < 0 else "Manter",
             "Enquadrado?": enquadrado,
             "Atual (R$)": round(atual_valor, 2),
             "Sugerido (R$)": round(sugerido_valor, 2),
@@ -142,6 +138,8 @@ if aloc_atual_pct and ((modo_input == "Valor (R$)") or (modo_input == "Porcentag
 
     st.write("### Plano de Realocação com Restrições")
     st.dataframe(df_resultado, use_container_width=True)
+
+    # Os gráficos continuam como no código anterior...
 
     st.write("### Alocação Atual vs Sugerida (com Faixa Permitida)")
     fig1 = go.Figure()
