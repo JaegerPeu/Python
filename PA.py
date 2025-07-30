@@ -248,32 +248,6 @@ else:
     st.markdown("**Não há ativos suficientes para calcular aderência.**")
     
     
-# st.markdown("---")
-# st.subheader("Cálculo de Aporte para Atingir Alocação Ideal")
-
-# if input_mode == "Valores (R$)" and aporte == 0:
-#     target_valores = [t / 100 for t in target_pct]
-#     soma_target = sum(target_valores)
-#     if soma_target > 0:
-#         # Recalcular target normalizado
-#         target_valores = [t / soma_target for t in target_valores]
-#         atual_total = sum(current_values)
-#         aportes_necessarios = []
-#         for i in range(len(current_values)):
-#             valor_ideal = target_valores[i] * atual_total / (1 - target_valores[i]) if target_valores[i] < 1 else float('inf')
-#             aporte_ideal = max(0, valor_ideal - current_values[i])
-#             aportes_necessarios.append(aporte_ideal)
-
-#         total_aporte_necessario = sum(aportes_necessarios)
-#         st.markdown(f"📌 **Aporte necessário estimado para atingir o target (sem rebalanceamento): R$ {total_aporte_necessario:,.2f}**")
-
-#         for cls, valor in zip(classes, aportes_necessarios):
-#             if valor > 0:
-#                 st.write(f"- {cls}: Aportar R$ {valor:,.2f}")
-#             else:
-#                 st.write(f"- {cls}: Nenhum aporte necessário")
-#     else:
-#         st.warning("Os targets estão zerados ou inválidos.")
 
 
 # Gráfico tipo velocímetro (gauge) para visualização da aderência
