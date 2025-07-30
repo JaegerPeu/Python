@@ -45,11 +45,21 @@ mode = st.selectbox("Modo de rebalanceamento:", ["Somente aporte", "Aporte + Reb
 
 # Converter tudo para um modelo numérico compatível:
 # Se input em Percentual, tratar valores atuais como percentuais de um total virtual de 100
+# Verifica se usuário está usando modo percentual e quer informar patrimônio real
+usar_patrimonio_real = False
+valor_patrimonio = 100.0
+
 if input_mode == "Percentual (%)":
     soma_pct = sum(current_alloc)
     if soma_pct == 0:
         st.warning("⚠️ Alocação atual está zerada. Preencha os valores antes de continuar.")
         st.stop()
+    
+    usar_patrimonio_real = st.checkbox("Deseja informar o valor real do seu patrimônio atual?")
+    if usar_patrimonio_real:
+        valor_patrimonio = st.number_input("Informe o valor total do patrimônio (R$):", min_value=0.01, step=100.0, value=100000.0)
+        total_atual = valor_patrimonio
+        current_values = [val * total_atual / 100.0 for val in current_alloc]
     else:
         total_atual = 100.0
         current_values = [val * total_atual / 100.0 for val in current_alloc]
@@ -60,12 +70,18 @@ else:
         st.stop()
     current_values = current_alloc
 
-# Total final T depende do modo:
+
+# Total final T depende do modo e do tipo de input
 if mode == "Somente rebalanceamento":
+    aporte_value = 0.0
+elif input_mode == "Percentual (%)" and not usar_patrimonio_real:
+    # Não considerar aporte se patrimônio real não foi informado
     aporte_value = 0.0
 else:
     aporte_value = aporte
-T_final = total_atual + aporte_value  # total após aporte (0 se não houver)
+
+T_final = total_atual + aporte_value
+
 
 # Verificar restrições de limites min/max
 sum_min = sum(min_pct)
@@ -186,15 +202,22 @@ else:
         st.stop()
 
 # Preparar DataFrame de resultado para exibição
+# Preparar DataFrame de resultado para exibição
 df_result = pd.DataFrame({
     "Classe": classes,
-    "Atual (R$)": [f"{val:.2f}" for val in current_values],
-    "Atual (%)": [f"{(cv/total_atual*100) if total_atual>0 else 0:.2f}%" for cv in current_values],
+    "Atual (%)": [f"{(cv / total_atual * 100) if total_atual > 0 else 0:.2f}%" for cv in current_values],
     "Target (%)": [f"{t:.2f}%" for t in target_pct],
-    "Final (R$)": [f"{val:.2f}" for val in final_values],
-    "Final (%)": [f"{p:.2f}%" for p in final_pct],
-    "Diferença (R$)": [f"{diff:+.2f}" for diff in diffs]
+    "Diferença (%)": [f"{((fv - cv) / total_atual * 100) if total_atual > 0 else 0:+.2f}%" for fv, cv in zip(final_values, current_values)],
+    "Final (%)": [f"{(fv / T_final * 100) if T_final > 0 else 0:.2f}%" for fv in final_values]
 })
+
+# Adicionar colunas em R$ apenas se for aplicável
+if input_mode == "Valores (R$)" or (input_mode == "Percentual (%)" and usar_patrimonio_real):
+    df_result.insert(2, "Atual (R$)", [f"{val:.2f}" for val in current_values])
+    df_result.insert(5, "Diferença (R$)", [f"{diff:+.2f}" for diff in diffs])
+    df_result["Final (R$)"] = [f"{val:.2f}" for val in final_values]
+
+
 st.subheader("Resultado do Rebalanceamento")
 st.dataframe(df_result, height=300)
 
@@ -223,6 +246,35 @@ if len(current_values) >= 1:
     st.markdown(f"**Aderência da alocação atual ao target:** {aderencia_pct:.2f}%")
 else:
     st.markdown("**Não há ativos suficientes para calcular aderência.**")
+    
+    
+# st.markdown("---")
+# st.subheader("Cálculo de Aporte para Atingir Alocação Ideal")
+
+# if input_mode == "Valores (R$)" and aporte == 0:
+#     target_valores = [t / 100 for t in target_pct]
+#     soma_target = sum(target_valores)
+#     if soma_target > 0:
+#         # Recalcular target normalizado
+#         target_valores = [t / soma_target for t in target_valores]
+#         atual_total = sum(current_values)
+#         aportes_necessarios = []
+#         for i in range(len(current_values)):
+#             valor_ideal = target_valores[i] * atual_total / (1 - target_valores[i]) if target_valores[i] < 1 else float('inf')
+#             aporte_ideal = max(0, valor_ideal - current_values[i])
+#             aportes_necessarios.append(aporte_ideal)
+
+#         total_aporte_necessario = sum(aportes_necessarios)
+#         st.markdown(f"📌 **Aporte necessário estimado para atingir o target (sem rebalanceamento): R$ {total_aporte_necessario:,.2f}**")
+
+#         for cls, valor in zip(classes, aportes_necessarios):
+#             if valor > 0:
+#                 st.write(f"- {cls}: Aportar R$ {valor:,.2f}")
+#             else:
+#                 st.write(f"- {cls}: Nenhum aporte necessário")
+#     else:
+#         st.warning("Os targets estão zerados ou inválidos.")
+
 
 # Gráfico tipo velocímetro (gauge) para visualização da aderência
 
