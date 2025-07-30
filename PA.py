@@ -2,6 +2,10 @@ import streamlit as st
 import numpy as np
 import pandas as pd
 from scipy.optimize import linprog
+import plotly.graph_objects as go
+import plotly.express as px
+
+
 
 st.title("Rebalanceamento de Carteira")
 
@@ -15,7 +19,7 @@ num_classes = st.number_input("Número de classes de ativos na carteira:", min_v
 columns = ["Classe", "Alocação Atual", "Target (%)", "Mínimo (%)", "Máximo (%)"]
 data = []
 for i in range(int(num_classes)):
-    classe_name = f"Ativo {i+1}"
+    classe_name = f"Classe {i+1}"
     data.append([classe_name, 0.0, 0.0, 0.0, 100.0])
 df_input = pd.DataFrame(data, columns=columns)
 
@@ -42,14 +46,19 @@ mode = st.selectbox("Modo de rebalanceamento:", ["Somente aporte", "Aporte + Reb
 # Converter tudo para um modelo numérico compatível:
 # Se input em Percentual, tratar valores atuais como percentuais de um total virtual de 100
 if input_mode == "Percentual (%)":
-    # Considerar total atual virtual = 100
-    total_atual = 100.0
-    # Converte alocação atual de % para valores base 100
-    current_values = [val * total_atual / 100.0 for val in current_alloc]
+    soma_pct = sum(current_alloc)
+    if soma_pct == 0:
+        st.warning("⚠️ Alocação atual está zerada. Preencha os valores antes de continuar.")
+        st.stop()
+    else:
+        total_atual = 100.0
+        current_values = [val * total_atual / 100.0 for val in current_alloc]
 else:
-    # Valores reais fornecidos
+    total_atual = sum(current_alloc)
+    if total_atual == 0:
+        st.warning("⚠️ O valor total da carteira atual é zero. Preencha antes de continuar.")
+        st.stop()
     current_values = current_alloc
-    total_atual = sum(current_values)
 
 # Total final T depende do modo:
 if mode == "Somente rebalanceamento":
@@ -216,7 +225,6 @@ else:
     st.markdown("**Não há ativos suficientes para calcular aderência.**")
 
 # Gráfico tipo velocímetro (gauge) para visualização da aderência
-import plotly.graph_objects as go
 
 fig_gauge = go.Figure(go.Indicator(
     mode="gauge+number",
@@ -241,3 +249,94 @@ fig_gauge = go.Figure(go.Indicator(
 
 st.plotly_chart(fig_gauge, use_container_width=True)
 
+
+# Conversão dos valores para float
+df_result["Atual (%)"] = df_result["Atual (%)"].str.replace('%', '').astype(float)
+df_result["Sugerido (%)"] = df_result["Final (%)"].str.replace('%', '').astype(float)
+df_result["Min (%)"] = min_pct
+df_result["Max (%)"] = max_pct
+df_result["Ação"] = [
+    "Comprar" if d > 0 else "Vender" if d < 0 else "Manter"
+    for d in diffs
+]
+df_result["Delta (%)"] = df_result["Sugerido (%)"] - df_result["Atual (%)"]
+
+# Gráfico 1 — Faixa de enquadramento
+st.write("### 📈 Alocação Atual vs Sugerida (com Enquadramento)")
+fig1 = go.Figure()
+for idx, row in df_result.iterrows():
+    fig1.add_trace(go.Scatter(
+        x=[row['Min (%)'], row['Max (%)']],
+        y=[row['Classe'], row['Classe']],
+        mode='lines',
+        line=dict(color='lightgray', width=10),
+        showlegend=False
+    ))
+    fig1.add_trace(go.Scatter(
+        x=[row['Atual (%)']],
+        y=[row['Classe']],
+        mode='markers',
+        marker=dict(color='red', size=12, symbol='circle'),
+        name='Atual'
+    ))
+    fig1.add_trace(go.Scatter(
+        x=[row['Sugerido (%)']],
+        y=[row['Classe']],
+        mode='markers',
+        marker=dict(color='green', size=12, symbol='diamond'),
+        name='Sugerido'
+    ))
+fig1.update_layout(
+    xaxis_title='Alocação (%)',
+    yaxis_title='Classe de Ativo',
+    yaxis=dict(categoryorder='array', categoryarray=df_result['Classe'][::-1]),
+    height=400,
+    margin=dict(l=100, r=40, t=60, b=40),
+    legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='center', x=0.5)
+)
+st.plotly_chart(fig1, use_container_width=True)
+
+# Gráfico 2 — Delta
+st.write("### 🔁 Variação da Alocação (Delta %)")
+fig2 = px.bar(
+    df_result,
+    x="Delta (%)",
+    y="Classe",
+    orientation='h',
+    color="Ação",
+    color_discrete_map={"Comprar": "green", "Vender": "red", "Manter": "gray"},
+    title="Delta de Alocação por Classe"
+)
+fig2.update_layout(
+    xaxis_title="Delta (%) (Sugerido - Atual)",
+    yaxis_title="Classe",
+    xaxis=dict(zeroline=True, range=[-100, 100]),
+    height=400,
+    margin=dict(l=80, r=40, t=50, b=40)
+)
+st.plotly_chart(fig2, use_container_width=True)
+
+# Gráfico 3 — Radar
+st.write("### 🧭 Radar de Asset Allocation")
+fig3 = go.Figure()
+fig3.add_trace(go.Scatterpolar(
+    r=df_result["Atual (%)"],
+    theta=df_result["Classe"],
+    fill='toself',
+    name='Atual',
+    line_color='red'
+))
+fig3.add_trace(go.Scatterpolar(
+    r=df_result["Sugerido (%)"],
+    theta=df_result["Classe"],
+    fill='toself',
+    name='Sugerido',
+    line_color='green'
+))
+fig3.update_layout(
+    polar=dict(radialaxis=dict(visible=True, range=[0, max(df_result["Max (%)"].max(), 100)])),
+    title="Radar de Alocação Atual vs Sugerida",
+    showlegend=True,
+    height=500
+)
+st.plotly_chart(fig3, use_container_width=True)
