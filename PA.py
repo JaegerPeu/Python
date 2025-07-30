@@ -1,231 +1,243 @@
 import streamlit as st
-import pandas as pd
 import numpy as np
-import plotly.graph_objects as go
-import plotly.express as px
+import pandas as pd
+from scipy.optimize import linprog
 
-st.set_page_config(page_title="Rebalanceamento de Carteira", layout="wide")
 st.title("Rebalanceamento de Carteira")
 
-# Botão para resetar
-if st.button("Resetar Tudo"):
-    st.session_state.clear()
-    st.experimental_rerun()
+# Seção de seleção de modo de input (Percentual ou Valor)
+input_mode = st.radio("Modo de entrada de dados da carteira:", ["Percentual (%)", "Valores (R$)"])
 
-modo_input = st.radio("Como você quer informar sua carteira?", ["Porcentagem (%)", "Valor (R$)"])
+# Entrada do número de classes de ativo
+num_classes = st.number_input("Número de classes de ativos na carteira:", min_value=1, step=1, value=3)
 
-num_classes = st.number_input("Determinar quantidade de Classes", 1, 20, 4, step=1, key="num_classes")
-
-classes = []
-aloc_atual = []
-aloc_otima = []
-fixos = []
-nao_vender_flags = []
-minimos = []
-maximos = []
-
-st.write("### Preencha os dados de cada classe:")
-col1, col2 = st.columns([3,2])
-with col1:
-    st.write("#### Asset Allocation")
-with col2:
-    st.write("#### Suitability")
-
+# Criação de dataframe para inputs de alocação atual, target, min e max
+columns = ["Classe", "Alocação Atual", "Target (%)", "Mínimo (%)", "Máximo (%)"]
+data = []
 for i in range(int(num_classes)):
-    col1, col2 = st.columns([3, 2])
-    with col1:
-        nome = st.text_input(f"Classe Nome {i+1}", value=st.session_state.get(f"nome_{i}", f"Classe {i+1}"), key=f"nome_{i}")
-        atual = st.number_input(
-            f"{'Atual (%)' if modo_input == 'Porcentagem (%)' else 'Atual (R$)'} - Classe {i+1}",
-            min_value=0.0,
-            format="%.6f",
-            key=f"atual_{i}",
-            step=None
-        )
-        otima = st.number_input(f"Alocacao Otima (%) - Classe {i+1}", 0.0, 100.0, format="%.6f", key=f"otima_{i}", step=None)
-    with col2:
-        fixo = st.number_input(f"Fixo (%) - Classe {i+1}", 0.0, 100.0, format="%.6f", key=f"fixo_{i}", step=None)
-        minimo = st.number_input(f"Minimo (%) - Classe {i+1}", 0.0, 100.0, format="%.6f", key=f"minimo_{i}", step=None)
-        maximo = st.number_input(f"Maximo (%) - Classe {i+1}", 0.0, 100.0, format="%.6f", key=f"maximo_{i}", step=None)
-        nao_vender = st.checkbox(f"Não vender - Classe {i+1}", key=f"nao_vender_{i}")
+    classe_name = f"Ativo {i+1}"
+    data.append([classe_name, 0.0, 0.0, 0.0, 100.0])
+df_input = pd.DataFrame(data, columns=columns)
 
-    classes.append(nome)
-    aloc_atual.append(atual)
-    aloc_otima.append(otima)
-    fixos.append(fixo)
-    nao_vender_flags.append(nao_vender)
-    minimos.append(minimo)
-    maximos.append(maximo)
+st.subheader("Dados da Carteira")
+st.markdown("Preencha a alocação atual de cada classe, o target (%) e os limites mínimo/máximo (%).")
 
-# Aporte adicional (opcional)
-aporte = st.number_input("Aporte adicional (R$)", min_value=0.0, format="%.2f", key="aporte")
-usar_aporte_somente = st.checkbox("Usar apenas aporte (sem vendas)", value=True)
+# ✅ USAR VERSÃO ESTÁVEL:
+edited_df = st.data_editor(df_input, num_rows="dynamic")
 
-# Validações e preparos
-st.markdown("### Validacões")
-aloc_atual_pct = None
 
-if modo_input == "Porcentagem (%)":
-    soma_atual_pct = sum(aloc_atual)
-    st.write(f"**Soma das Alocações Informadas:** {round(soma_atual_pct, 2)}%")
-    if abs(soma_atual_pct - 100) > 1e-3:
-        st.warning("A soma das porcentagens alocadas não é 100%.")
-    else:
-        aloc_atual_pct = aloc_atual
-        total_base = 100.0
+# Após edição, extrair os valores preenchidos
+classes = edited_df["Classe"].tolist()
+current_alloc = edited_df["Alocação Atual"].astype(float).tolist()
+target_pct = edited_df["Target (%)"].astype(float).tolist()
+min_pct = edited_df["Mínimo (%)"].astype(float).tolist()
+max_pct = edited_df["Máximo (%)"].astype(float).tolist()
+
+# Entrada do valor de aporte (R$) - se input em % usamos base 100, mas o aporte será considerado em R$ real
+aporte = st.number_input("Valor de aporte (R$):", min_value=0.0, step=1.0, value=0.0)
+
+# Seleção do modo de rebalanceamento
+mode = st.selectbox("Modo de rebalanceamento:", ["Somente aporte", "Aporte + Rebalanceamento", "Somente rebalanceamento"])
+
+# Converter tudo para um modelo numérico compatível:
+# Se input em Percentual, tratar valores atuais como percentuais de um total virtual de 100
+if input_mode == "Percentual (%)":
+    # Considerar total atual virtual = 100
+    total_atual = 100.0
+    # Converte alocação atual de % para valores base 100
+    current_values = [val * total_atual / 100.0 for val in current_alloc]
 else:
-    total_valor = sum(aloc_atual)
-    st.write(f"**Patrimônio Líquido (PL) Informado:** R$ {total_valor:,.2f}")
-    if total_valor == 0:
-        st.warning("O valor total da carteira deve ser maior que zero.")
+    # Valores reais fornecidos
+    current_values = current_alloc
+    total_atual = sum(current_values)
+
+# Total final T depende do modo:
+if mode == "Somente rebalanceamento":
+    aporte_value = 0.0
+else:
+    aporte_value = aporte
+T_final = total_atual + aporte_value  # total após aporte (0 se não houver)
+
+# Verificar restrições de limites min/max
+sum_min = sum(min_pct)
+sum_max = sum(max_pct)
+if sum_min > 100:
+    st.error(f"⚠️ A soma dos limites mínimos ({sum_min}%) excede 100%. Ajuste os mínimos para que somem no máximo 100%.")
+    st.stop()
+if sum_max < 100:
+    st.error(f"⚠️ A soma dos limites máximos ({sum_max}%) é menor que 100%. Ajuste os máximos para cobrir pelo menos 100%.")
+    st.stop()
+
+# Convertir target_pct, min_pct, max_pct para frações (0-1) para cálculos
+target_frac = [t/100.0 for t in target_pct]
+min_frac = [m/100.0 for m in min_pct]
+max_frac = [M/100.0 for M in max_pct]
+
+# Caso especial: se modo somente aporte e a distribuição atual já estiver balanceada (igual ao target)
+# então distribuímos o aporte direto em proporção ao target
+# Verificação: comparar percentuais atuais vs target (considerando tolerância pequena)
+current_pct = []
+if total_atual > 0:
+    current_pct = [ (cv/total_atual)*100 if total_atual>0 else 0 for cv in current_values ]
+else:
+    current_pct = [0 for _ in current_values]
+balanced = all(abs(current_pct[i] - target_pct[i]) < 1e-6 for i in range(len(target_pct)))
+if mode == "Somente aporte" and balanced and aporte_value > 0:
+    # Carteira já está balanceada, distribuir aporte conforme target
+    final_values = [cv + (target_frac[i] * aporte_value) for i, cv in enumerate(current_values)]
+    final_pct = [ (fv / (total_atual+aporte_value)) * 100 if (total_atual+aporte_value)>0 else 0 for fv in final_values ]
+    # Nenhuma venda, apenas compras proporcionais ao target
+    diffs = [fv - cv for fv, cv in zip(final_values, current_values)]
+else:
+    # Montar o problema de programação linear e resolver com linprog
+    n = len(current_values)
+    # Variáveis: x[0..n-1] = alocações finais, x[n..2n-1] = desvios absolutos d_i
+    Nvars = 2 * n
+
+    # Vetor de coeficientes do objetivo (c) – minimizar soma de d_i (desvios)
+    c = np.zeros(Nvars)
+    c[n:2*n] = 1.0  # coef 1 para cada d_i, 0 para x_i
+
+    # Restrições de igualdade (soma das alocações = T_final)
+    A_eq = np.zeros((1, Nvars))
+    A_eq[0, 0:n] = 1.0
+    b_eq = np.array([T_final])
+
+    # Restrições de desigualdade (A_ub * x <= b_ub)
+    A_ub = []
+    b_ub = []
+
+    # 1. Restrições de valor absoluto: 
+    #    x_i - t_i*T <= d_i  =>  (x_i) + (-d_i) <= t_i * T_final
+    #    -(x_i - t_i*T) <= d_i  =>  (-x_i) + (-d_i) <= -t_i * T_final
+    for i in range(n):
+        # x_i - d_i <= t_i * T_final
+        row1 = np.zeros(Nvars)
+        row1[i] = 1.0    # x_i coef
+        row1[n+i] = -1.0  # -d_i coef
+        A_ub.append(row1)
+        b_ub.append(target_frac[i] * T_final)
+        # -x_i - d_i <= -t_i * T_final
+        row2 = np.zeros(Nvars)
+        row2[i] = -1.0   # -x_i
+        row2[n+i] = -1.0  # -d_i
+        A_ub.append(row2)
+        b_ub.append(- target_frac[i] * T_final)
+
+    # 2. Restrições de "Somente aporte" (se aplicável): x_i >= current_values_i 
+    if mode == "Somente aporte":
+        for i in range(n):
+            # -x_i <= -current_i   (equivalente a x_i >= current_i)
+            row = np.zeros(Nvars)
+            row[i] = -1.0
+            A_ub.append(row)
+            b_ub.append(- current_values[i])
+
+    # 3. Limites mínimos e máximos: 
+    for i in range(n):
+        # x_i <= max_frac[i] * T_final
+        row_up = np.zeros(Nvars)
+        row_up[i] = 1.0
+        A_ub.append(row_up)
+        b_ub.append(max_frac[i] * T_final)
+        # x_i >= min_frac[i] * T_final  ->  -x_i <= -min*T
+        row_low = np.zeros(Nvars)
+        row_low[i] = -1.0
+        A_ub.append(row_low)
+        b_ub.append(- min_frac[i] * T_final)
+
+    A_ub = np.array(A_ub)
+    b_ub = np.array(b_ub)
+
+    # Definir bounds (limites) das variáveis:
+    bounds = []
+    # x_i bounds:
+    for i in range(n):
+        # x_i >= 0 sempre. 
+        # Se Somente aporte, x_i >= current (mas isso já foi tratado em restrição acima),
+        # aqui basta x_i >= 0. 
+        lower_bound = 0.0
+        upper_bound = None  # None = sem limite superior além das restrições explícitas
+        bounds.append((lower_bound, upper_bound))
+    # d_i bounds:
+    for i in range(n):
+        bounds.append((0.0, None))  # d_i >= 0, sem limite superior (pode ser até T_final no pior caso)
+
+    # Chamar o solver de Programação Linear (Simplex através do método HiGHS)
+    res = linprog(c, A_ub=A_ub, b_ub=b_ub, A_eq=A_eq, b_eq=b_eq, bounds=bounds, method="highs")
+    if res.success:
+        # Extrair soluções
+        x_solution = res.x[0:n]   # valores finais alocados ótimos
+        final_values = list(x_solution)
+        final_pct = [(val / T_final) * 100 if T_final>0 else 0 for val in final_values]
+        # Diferenças (comprar/vender)
+        diffs = [final_values[i] - current_values[i] for i in range(n)]
     else:
-        aloc_atual_pct = [v / total_valor * 100 for v in aloc_atual]  # porcentagem com base apenas no valor atual
-        total_base = total_valor + aporte  # base usada para calcular novos valores
+        st.error("Não foi possível resolver o problema de otimização (solução inviável ou erro no solver).")
+        st.stop()
 
-# Cálculo principal
-if aloc_atual_pct and ((modo_input == "Valor (R$)") or (modo_input == "Porcentagem (%)" and abs(sum(aloc_atual) - 100) < 1e-3)) and st.button("Calcular Realocação"):
-    resultado = []
+# Preparar DataFrame de resultado para exibição
+df_result = pd.DataFrame({
+    "Classe": classes,
+    "Atual (R$)": [f"{val:.2f}" for val in current_values],
+    "Atual (%)": [f"{(cv/total_atual*100) if total_atual>0 else 0:.2f}%" for cv in current_values],
+    "Target (%)": [f"{t:.2f}%" for t in target_pct],
+    "Final (R$)": [f"{val:.2f}" for val in final_values],
+    "Final (%)": [f"{p:.2f}%" for p in final_pct],
+    "Diferença (R$)": [f"{diff:+.2f}" for diff in diffs]
+})
+st.subheader("Resultado do Rebalanceamento")
+st.dataframe(df_result, height=300)
 
-    travado_classes = [i for i in range(int(num_classes)) if nao_vender_flags[i] and aloc_atual_pct[i] > aloc_otima[i]]
-    travado_pct = sum([aloc_atual_pct[i] for i in travado_classes])
-    restante_pct = 100.0 - travado_pct
-    soma_otima_travada = sum([aloc_otima[i] for i in travado_classes])
+# Interpretar ações de compra/venda a partir de diffs
+actions = []
+for cls, diff in zip(classes, diffs):
+    if abs(diff) < 1e-6:
+        action = f"{cls}: **Sem alterações** (mantido)"
+    elif diff > 0:
+        action = f"{cls}: Comprar/Aportar **R${diff:.2f}**"
+    else:
+        action = f"{cls}: Vender **R${-diff:.2f}**"
+    actions.append(action)
+st.markdown("**Operações sugeridas:**")
+for act in actions:
+    st.write("- " + act)
+# Cálculo da Aderência da alocação atual vs target (%)
+if len(current_values) >= 1:
+    current_pct_array = np.array([(cv / total_atual * 100) if total_atual > 0 else 0 for cv in current_values])
+    target_array = np.array(target_pct)
 
-    otima_ajustada = []
-    for i in range(int(num_classes)):
-        if i in travado_classes:
-            otima_ajustada.append(aloc_atual_pct[i])
-        else:
-            if (100.0 - soma_otima_travada) == 0:
-                otima_ajustada.append(aloc_atual_pct[i])
-            else:
-                otima_ajustada.append(aloc_otima[i] / (100.0 - soma_otima_travada) * restante_pct)
+    erro_medio = np.mean(np.abs(current_pct_array - target_array))  # erro absoluto médio
+    aderencia = 1 - erro_medio / 100
+    aderencia_pct = max(0, min(aderencia * 100, 100))  # limitar entre 0 e 100
 
-    for i in range(int(num_classes)):
-        atual_pct = aloc_atual_pct[i]
-        otimo_pct = otima_ajustada[i]
-        fixo_pct = min(fixos[i], atual_pct)
+    st.markdown(f"**Aderência da alocação atual ao target:** {aderencia_pct:.2f}%")
+else:
+    st.markdown("**Não há ativos suficientes para calcular aderência.**")
 
-        atual_variavel = atual_pct - fixo_pct
-        otimo_variavel = otimo_pct - fixo_pct
-        sugerido_pct = fixo_pct + otimo_variavel
+# Gráfico tipo velocímetro (gauge) para visualização da aderência
+import plotly.graph_objects as go
 
-        if usar_aporte_somente:
-            atual_valor = aloc_atual[i]
-            alvo_valor = total_base * (aloc_otima[i] / 100.0)
-            delta_valor = max(alvo_valor - atual_valor, 0)
-            sugerido_valor = atual_valor + delta_valor
-            sugerido_pct = sugerido_valor / total_base * 100
-        else:
-            if nao_vender_flags[i] and sugerido_pct < atual_pct:
-                sugerido_pct = atual_pct
-                otimo_variavel = atual_pct - fixo_pct
+fig_gauge = go.Figure(go.Indicator(
+    mode="gauge+number",
+    value=aderencia_pct,
+    domain={'x': [0, 1], 'y': [0, 1]},
+    title={'text': "Aderência Atual vs Target (%)"},
+    gauge={
+        'axis': {'range': [0, 100]},
+        'bar': {'color': "green"},
+        'steps': [
+            {'range': [0, 50], 'color': 'red'},
+            {'range': [50, 80], 'color': 'yellow'},
+            {'range': [80, 100], 'color': 'lightgreen'}
+        ],
+        'threshold': {
+            'line': {'color': "black", 'width': 4},
+            'thickness': 0.75,
+            'value': aderencia_pct
+        }
+    }
+))
 
-        delta_total = sugerido_pct - atual_pct
-        atual_valor = aloc_atual[i] if modo_input == "Valor (R$)" else atual_pct / 100 * total_base
-        sugerido_valor = sugerido_pct / 100 * total_base
-        delta_valor = sugerido_valor - atual_valor
+st.plotly_chart(fig_gauge, use_container_width=True)
 
-        sugerido_pct_check = round(sugerido_pct, 4)
-        enquadrado = "Sim" if (sugerido_pct_check >= minimos[i] and sugerido_pct_check <= maximos[i]) else "Não"
-
-        resultado.append({
-            "Classe": classes[i],
-            "Atual (%)": round(aloc_atual[i] / sum(aloc_atual) * 100, 2) if modo_input == "Valor (R$)" else round(aloc_atual_pct[i], 2),
-            "Min (%)": minimos[i],
-            "Ótima (%)": round(aloc_otima[i], 2),
-            "Max (%)": maximos[i],
-            "Fixo (%)": round(fixo_pct, 2),
-            "Sugerido (%)": round(sugerido_pct, 2),
-            "Delta (%)": round(delta_total, 2),
-            "Ação": "Comprar" if delta_valor > 0 else "Vender" if delta_valor < 0 else "Manter",
-            "Enquadrado?": enquadrado,
-            "Atual (R$)": round(atual_valor, 2),
-            "Sugerido (R$)": round(sugerido_valor, 2),
-            "Delta (R$)": round(delta_valor, 2)
-        })
-
-    df_resultado = pd.DataFrame(resultado)
-
-    st.write("### Plano de Realocação com Restrições")
-    df_resultado1 = df_resultado.drop(columns=["Sugerido (%)"])
-    st.dataframe(df_resultado1, use_container_width=True)
-
-    # Os gráficos continuam como no código anterior...
-
-    st.write("### Alocação Atual vs Sugerida (com Faixa Permitida)")
-    fig1 = go.Figure()
-    for idx, row in df_resultado.iterrows():
-        fig1.add_trace(go.Scatter(
-            x=[row['Min (%)'], row['Max (%)']],
-            y=[row['Classe'], row['Classe']],
-            mode='lines',
-            line=dict(color='lightgray', width=10),
-            showlegend=False
-        ))
-        fig1.add_trace(go.Scatter(
-            x=[row['Atual (%)']],
-            y=[row['Classe']],
-            mode='markers',
-            marker=dict(color='red', size=12, symbol='circle'),
-            name='Atual'
-        ))
-        fig1.add_trace(go.Scatter(
-            x=[row['Sugerido (%)']],
-            y=[row['Classe']],
-            mode='markers',
-            marker=dict(color='green', size=12, symbol='diamond'),
-            name='Sugerido'
-        ))
-    fig1.update_layout(
-        xaxis_title='Alocação (%)',
-        yaxis_title='Classe de Ativo',
-        yaxis=dict(categoryorder='array', categoryarray=df_resultado['Classe'][::-1]),
-        height=400,
-        margin=dict(l=100, r=40, t=60, b=40),
-        legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='center', x=0.5)
-    )
-    st.plotly_chart(fig1, use_container_width=True)
-
-    st.write("### Variação da Alocação (Delta %)")
-    fig2 = px.bar(
-        df_resultado,
-        x="Delta (%)",
-        y="Classe",
-        orientation='h',
-        color="Ação",
-        color_discrete_map={"Comprar": "green", "Vender": "red", "Manter": "gray"},
-        title="Delta de Alocação por Classe"
-    )
-    fig2.update_layout(
-        xaxis_title="Delta (%) (Sugerido - Atual)",
-        yaxis_title="Classe",
-        xaxis=dict(zeroline=True, range=[-100, 100]),
-        height=400,
-        margin=dict(l=80, r=40, t=50, b=40)
-    )
-    st.plotly_chart(fig2, use_container_width=True)
-
-    st.write("### Radar de Alocação por Classe")
-    fig3 = go.Figure()
-    fig3.add_trace(go.Scatterpolar(
-        r=df_resultado["Atual (%)"],
-        theta=df_resultado["Classe"],
-        fill='toself',
-        name='Atual',
-        line_color='red'
-    ))
-    fig3.add_trace(go.Scatterpolar(
-        r=df_resultado["Sugerido (%)"],
-        theta=df_resultado["Classe"],
-        fill='toself',
-        name='Sugerido',
-        line_color='green'
-    ))
-    fig3.update_layout(
-        polar=dict(radialaxis=dict(visible=True, range=[0, max(df_resultado["Max (%)"].max(), 100)])),
-        title="Radar de Alocação Atual vs Sugerida",
-        showlegend=True,
-        height=500
-    )
-    st.plotly_chart(fig3, use_container_width=True)
