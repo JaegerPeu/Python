@@ -1,6 +1,6 @@
 import pandas as pd
 
-def carregar_dados(caminho_excel=r"C:\Users\PedroAugustoBernarde\OneDrive - SWM\Área de Trabalho\base.xlsx"):
+def carregar_dados(caminho_excel='base.xlsx'):
     # Leitura
     df = pd.read_excel(caminho_excel)
     df.columns = [col.strip() for col in df.columns]
@@ -42,3 +42,4 @@ def carregar_dados(caminho_excel=r"C:\Users\PedroAugustoBernarde\OneDrive - SWM\
 if __name__ == "__main__":
     df = carregar_dados()
     print(df.head())
+
