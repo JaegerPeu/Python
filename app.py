@@ -190,5 +190,6 @@ with aba1:
 
 with aba2:
     st.subheader("📁 Detalhamento dos Fundos e Veículos")
-    caminho_arquivo = r"C:\Users\PedroAugustoBernarde\OneDrive - SWM\Área de Trabalho\numeros.xlsx"
+    caminho_arquivo = "numeros.xlsx"
     mostrar_veiculos(caminho_arquivo)
+
