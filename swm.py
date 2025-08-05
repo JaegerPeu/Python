@@ -68,9 +68,9 @@ aba1, aba2 = st.tabs(["📊 Visão Geral", "📂 Veículos de Alocação"])
 # === ABA 1: Visão Geral ===
 with aba1:
     col1, col2, col3 = st.columns(3)
-    col1.metric("PL Onshore", formatar(pl_onshore), delta="5,2%")
-    col2.metric("PL Offshore", formatar_off(pl_offshore), delta="-5,2%")
-    col3.metric("PL Total", formatar(pl_total), delta="0%")
+    col1.metric("PL Onshore", formatar(pl_onshore))
+    col2.metric("PL Offshore", formatar_off(pl_offshore))
+    col3.metric("PL Total", formatar(pl_total))
 
     col4, col5, col6 = st.columns(3)
     col4.metric("Receita Est. Onshore", formatar(receita_onshore))
