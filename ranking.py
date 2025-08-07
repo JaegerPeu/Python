@@ -45,15 +45,15 @@ if cadastro_files and posicao_files:
             df = df.rename(columns={
                 "Conta": "conta_cliente",
                 "Produto": "produto",
-                "Valor Líquido": "valor_liquido",
+                "Valor Bruto": "valor_bruto",
                 "Gestor": "gestor"
             })
-            posicao_list.append(df[["conta_cliente", "produto", "valor_liquido", "gestor"]])
+            posicao_list.append(df[["conta_cliente", "produto", "valor_bruto", "gestor"]])
         posicao_df = pd.concat(posicao_list, ignore_index=True)
 
         # Merge
         df = posicao_df.merge(cadastro_df, on="conta_cliente", how="left")
-        df = df.dropna(subset=["assessor", "produto", "valor_liquido", "gestor"])
+        df = df.dropna(subset=["assessor", "produto", "valor_bruto", "gestor"])
 
         # Filtro de Gestor
         gestores = sorted(df["gestor"].dropna().unique())
@@ -68,8 +68,8 @@ if cadastro_files and posicao_files:
         df_filtrado = df_gestor[df_gestor["produto"] == produto_sel]
 
                 # Agrupamento por assessor
-        ranking_df = df_filtrado.groupby("assessor")["valor_liquido"].sum().reset_index()
-        ranking_df = ranking_df.sort_values(by="valor_liquido", ascending=False).reset_index(drop=True)
+        ranking_df = df_filtrado.groupby("assessor")["valor_bruto"].sum().reset_index()
+        ranking_df = ranking_df.sort_values(by="valor_bruto", ascending=False).reset_index(drop=True)
 
         # Medalhas 🥇🥈🥉
         medalhas = ["🥇", "🥈", "🥉"]
@@ -78,18 +78,18 @@ if cadastro_files and posicao_files:
             ranking_df.at[i, "🏅"] = medalhas[i]
 
         # Formatação de moeda no padrão brasileiro
-        ranking_df["valor_liquido"] = ranking_df["valor_liquido"].apply(
+        ranking_df["valor_bruto"] = ranking_df["valor_bruto"].apply(
             lambda x: f"R$ {x:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
         )
 
         # Exibição
         st.subheader("🔎 Ranking de PL por Assessor")
         st.markdown(f"**Gestor:** {gestor_sel}  |  **Produto:** {produto_sel}")
-        st.dataframe(ranking_df.rename(columns={"assessor": "Assessor", "valor_liquido": "PL (Valor Líquido)"}),
+        st.dataframe(ranking_df.rename(columns={"assessor": "Assessor", "valor_bruto": "PL (Valor Líquido)"}),
                      use_container_width=True)
 
         # Total geral
-        total_pl = df_filtrado["valor_liquido"].sum()
+        total_pl = df_filtrado["valor_bruto"].sum()
         total_pl_fmt = f"R$ {total_pl:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
         st.markdown(f"### 💰 Total de PL nesse produto: {total_pl_fmt}")
 
@@ -97,6 +97,7 @@ if cadastro_files and posicao_files:
     except Exception as e:
         st.error(f"❌ Erro ao processar os arquivos: {e}")
         
+
 
 
 
