@@ -67,7 +67,7 @@ if cadastro_files and posicao_files:
 
         df_filtrado = df_gestor[df_gestor["produto"] == produto_sel]
 
-        # Agrupamento por assessor
+                # Agrupamento por assessor
         ranking_df = df_filtrado.groupby("assessor")["valor_liquido"].sum().reset_index()
         ranking_df = ranking_df.sort_values(by="valor_liquido", ascending=False).reset_index(drop=True)
 
@@ -77,17 +77,26 @@ if cadastro_files and posicao_files:
         for i in range(min(3, len(ranking_df))):
             ranking_df.at[i, "🏅"] = medalhas[i]
 
+        # Formatação de moeda no padrão brasileiro
+        ranking_df["valor_liquido"] = ranking_df["valor_liquido"].apply(
+            lambda x: f"R$ {x:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+        )
+
         # Exibição
         st.subheader("🔎 Ranking de PL por Assessor")
         st.markdown(f"**Gestor:** {gestor_sel}  |  **Produto:** {produto_sel}")
-        st.dataframe(ranking_df, use_container_width=True)
+        st.dataframe(ranking_df.rename(columns={"assessor": "Assessor", "valor_liquido": "PL (Valor Líquido)"}),
+                     use_container_width=True)
 
         # Total geral
         total_pl = df_filtrado["valor_liquido"].sum()
-        st.markdown(f"### 💰 Total de PL nesse produto: R$ {total_pl:,.2f}")
+        total_pl_fmt = f"R$ {total_pl:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+        st.markdown(f"### 💰 Total de PL nesse produto: {total_pl_fmt}")
+
 
     except Exception as e:
         st.error(f"❌ Erro ao processar os arquivos: {e}")
         
+
 
 
