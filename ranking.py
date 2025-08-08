@@ -100,7 +100,7 @@ def fmt_moeda(col):
 
 def to_excel_bytes(df_dict):
     output = io.BytesIO()
-    with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
+    with pd.ExcelWriter(output, engine="openpyxl") as writer:
         for sheet, dfx in df_dict.items():
             dfx.to_excel(writer, sheet_name=sheet[:31], index=False)
     return output.getvalue()
@@ -232,3 +232,4 @@ if cadastro_files and posicao_files:
         st.info("Dica: esse erro costuma acontecer quando 'Conta' vem numérica em um arquivo e texto no outro. O app agora força tudo para texto, mas verifique se os títulos das colunas estão corretos.")
 else:
     st.caption("💡 Dica: você pode subir mais de um arquivo em cada campo. O app lê todas as abas de cada XLSX.")
+
