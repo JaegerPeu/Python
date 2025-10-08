@@ -7,8 +7,6 @@ import plotly.express as px
 import plotly.graph_objects as go
 from datetime import date
 import streamlit as st
-import os
-from datetime import date
 
 # ----------------------------------------------------
 # CONFIG INICIAL E LOGO (tema manual + dinâmico)
@@ -24,18 +22,20 @@ col1, col2 = st.columns([9, 1])
 with col2:
     toggle = st.toggle("🌙 Escuro" if st.session_state["theme_mode"] == "Light" else "☀️ Claro")
     if toggle:
-        st.session_state["theme_mode"] = "Dark" if st.session_state["theme_mode"] == "Light" else "Light"
+        st.session_state["theme_mode"] = (
+            "Dark" if st.session_state["theme_mode"] == "Light" else "Light"
+        )
 
 # Define cores e logos conforme o tema atual
 if st.session_state["theme_mode"] == "Dark":
     bg_color = "#0E1117"
     text_color = "#EAEAEA"
-    logo_file = "logo_dark.svg"
+    logo_file = "logo_dark.svg"  # logo branco
     PLOT_TEMPLATE = "plotly_dark"
 else:
     bg_color = "#FFFFFF"
     text_color = "#1E1E1E"
-    logo_file = "logo_light.svg"
+    logo_file = "logo_light.svg"  # logo escuro
     PLOT_TEMPLATE = "plotly_white"
 
 # --- CSS dinâmico ---
@@ -65,6 +65,29 @@ st.markdown(
     """,
     unsafe_allow_html=True,
 )
+
+# --- Função para ler logo ---
+def read_svg(filename):
+    try:
+        with open(filename, "r", encoding="utf-8") as f:
+            return f.read()
+    except FileNotFoundError:
+        return f"<!-- {filename} não encontrado -->"
+
+# Carrega o logo correto (1 único)
+svg_logo = read_svg(logo_file)
+
+# --- Renderiza cabeçalho ---
+st.markdown(
+    f"""
+    <div class="logo-container">
+        <div style="width: 160px;">{svg_logo}</div>
+        <h1>🏦 Dashboard Institucional – Fundos</h1>
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
+
 
 # --- Lê o logo atual ---
 def read_svg(filename):
@@ -536,6 +559,7 @@ with st.sidebar:
     st.caption("""Nota: dados de fluxo são somados no mês; PL é o último do mês.
                
                Variação_% = (PLFinal/PLInicial) -1)""")
+
 
 
 
