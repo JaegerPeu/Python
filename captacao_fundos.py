@@ -77,7 +77,7 @@ def load_svg(*filenames: str) -> str:
     return "<div style='color:#fff;font:12px sans-serif'>LOGO</div>"
 
 # escolha a ordem de preferência dos arquivos de logo
-svg_logo = load_svg("logo_light.svg", "logo.svg", "logo_dark.svg")
+svg_logo = load_svg( "logo_dark.svg","logo_light.svg", "logo.svg")
 
 # --- Renderiza cabeçalho (logo SEMPRE sobre fundo preto) ---
 st.markdown(
@@ -467,6 +467,7 @@ with st.sidebar:
     st.caption("""Nota: dados de fluxo são somados no mês; PL é o último do mês.
                
                Variação_% = (PLFinal/PLInicial) -1)""")
+
 
 
 
