@@ -479,14 +479,15 @@ if not dfp.empty:
 # 9) CONTROLES EXTRAS
 # ----------------------------------------------------
 with st.sidebar:
-    st.header("⚙️ Opções")
-    if st.button("🔄 Atualizar dados (limpar cache)"):
-        st.cache_data.clear()
-        st.success("Cache limpo! Recarregue o app.")
+    #st.header("⚙️ Opções")
+   # if st.button("🔄 Atualizar dados (limpar cache)"):
+   #     st.cache_data.clear()
+   #     st.success("Cache limpo! Recarregue o app.")
 
     st.caption("""Nota: dados de fluxo são somados no mês; PL é o último do mês.
                
                Variação_% = (PLFinal/PLInicial) -1)""")
+
 
 
 
