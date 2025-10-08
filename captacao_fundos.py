@@ -9,7 +9,7 @@ from datetime import date
 # ----------------------------------------------------
 # CONFIG INICIAL E LOGO (com detecção de tema)
 # ----------------------------------------------------
-st.set_page_config(page_title="Dashboard Institucional – Fundos", layout="wide")
+st.set_page_config(page_title="Dashboard – Fundos", layout="wide")
 
 # Tema padrão para gráficos Plotly
 PLOT_TEMPLATE = "plotly_white"
@@ -73,7 +73,6 @@ st.markdown(
             <div class="logo-light">{logo_light}</div>
             <div class="logo-dark">{logo_dark}</div>
         </div>
-        <h1>Dashboard Institucional – Fundos</h1>
     </div>
     """,
     unsafe_allow_html=True,
@@ -476,6 +475,7 @@ with st.sidebar:
     st.caption("""Nota: dados de fluxo são somados no mês; PL é o último do mês.
                
                Variação_% = (PLFinal/PLInicial) -1)""")
+
 
 
 
