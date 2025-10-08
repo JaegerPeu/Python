@@ -6,20 +6,19 @@ import streamlit as st
 import plotly.express as px
 import plotly.graph_objects as go
 from datetime import date
-
 # ----------------------------------------------------
-# CONFIG INICIAL E LOGO
+# CONFIG INICIAL E LOGO (com detecção de tema)
 # ----------------------------------------------------
 st.set_page_config(page_title="Dashboard Institucional – Fundos", layout="wide")
-# Tema padrão dos gráficos Plotly
+
+# Tema padrão para gráficos Plotly
 PLOT_TEMPLATE = "plotly_white"
 
-
-# --- CSS opcional para deixar o layout mais limpo ---
+# --- CSS opcional para layout limpo e responsivo ---
 st.markdown(
     """
     <style>
-    /* Oculta o menu, footer e cabeçalho padrão do Streamlit */
+    /* Oculta menu, footer e header padrão do Streamlit */
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
     header {visibility: hidden;}
@@ -29,20 +28,57 @@ st.markdown(
         font-size: 30px !important;
         font-weight: 700;
         margin: 0 0 5px 0;
-        color: #1E1E1E;
     }
 
-    /* Margem inferior menor no logo para alinhar */
+    /* Container do logo e título */
     .logo-container {
         display: flex;
         align-items: center;
         gap: 15px;
-        margin-bottom: 20px;
+        margin-bottom: 25px;
+    }
+
+    /* Ajuste para tema escuro/claro */
+    @media (prefers-color-scheme: dark) {
+        .logo-light {display: none;}
+        .logo-dark {display: block;}
+        h1 {color: #EAEAEA;}
+    }
+    @media (prefers-color-scheme: light) {
+        .logo-dark {display: none;}
+        .logo-light {display: block;}
+        h1 {color: #1E1E1E;}
     }
     </style>
     """,
     unsafe_allow_html=True,
 )
+
+# --- Lê versões do logo (claro e escuro) ---
+def read_svg(filename):
+    try:
+        with open(filename, "r", encoding="utf-8") as f:
+            return f.read()
+    except FileNotFoundError:
+        return f"<!-- {filename} não encontrado -->"
+
+logo_light = read_svg("logo_light.svg")  # versão escura (para fundo claro)
+logo_dark = read_svg("logo_dark.svg")    # versão clara (para fundo escuro)
+
+# --- Renderiza o cabeçalho dinâmico ---
+st.markdown(
+    f"""
+    <div class="logo-container">
+        <div style="width: 160px;">
+            <div class="logo-light">{logo_light}</div>
+            <div class="logo-dark">{logo_dark}</div>
+        </div>
+        <h1>Dashboard Institucional – Fundos</h1>
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
+
 
 # --- Lê o arquivo SVG local ---
 # (coloque o arquivo logo_solutions.svg na mesma pasta do app)
@@ -440,5 +476,6 @@ with st.sidebar:
     st.caption("""Nota: dados de fluxo são somados no mês; PL é o último do mês.
                
                Variação_% = (PLFinal/PLInicial) -1)""")
+
 
 
