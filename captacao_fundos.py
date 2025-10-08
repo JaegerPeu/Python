@@ -379,37 +379,40 @@ if not dfp.empty:
     heat = heat.loc[heat.sum(axis=1).sort_values(ascending=False).index]
 
     fig_hm = px.imshow(
-    heat,
-    aspect="auto",
-    title="Captação Líquida por Fundo e Mês",
-    labels=dict(color="Captação Líquida (R$)"),
-    text_auto=False,
-    color_continuous_scale="RdYlGn",  # vermelho → zero → verde
-    zmin=-abs(heat.values).max(),     # força centro simétrico
-    zmax=abs(heat.values).max(),
-)
+        heat,
+        aspect="auto",
+        title="Captação Líquida por Fundo e Mês",
+        labels=dict(color="Captação Líquida (R$)"),
+        text_auto=False,
+        color_continuous_scale="RdYlGn",  # vermelho → zero → verde
+        zmin=-abs(heat.values).max(),     # força centro simétrico
+        zmax=abs(heat.values).max(),
+    )
 
-fig_hm.update_layout(
-    template=PLOT_TEMPLATE,
-    margin=dict(l=10, r=10, t=60, b=10),
-    coloraxis_colorbar=dict(
-        title="Fluxo Líquido (R$)",
-        ticksuffix="",
-        orientation="v",
-        lenmode="fraction",
-        len=0.75,
-    ),
-)
+    fig_hm.update_layout(
+        template=PLOT_TEMPLATE,
+        margin=dict(l=10, r=10, t=60, b=10),
+        coloraxis_colorbar=dict(
+            title="Fluxo Líquido (R$)",
+            ticksuffix="",
+            orientation="v",
+            lenmode="fraction",
+            len=0.75,
+        ),
+    )
 
     st.plotly_chart(fig_hm, use_container_width=True)
 
     c2 = st.columns([1, 5])[0]
-    c2.download_button("⬇️ Exportar heatmap (CSV)", heat.reset_index().to_csv(index=False).encode("utf-8"),
-                       "heatmap_captacao.csv", "text/csv")
+    c2.download_button(
+        "⬇️ Exportar heatmap (CSV)",
+        heat.reset_index().to_csv(index=False).encode("utf-8"),
+        "heatmap_captacao.csv",
+        "text/csv",
+    )
 else:
     st.info("Sem dados para montar o heatmap.")
 
-st.divider()
 
 # ----------------------------------------------------
 # 8) DRILL-DOWN POR FUNDO (mantido)
@@ -483,6 +486,7 @@ with st.sidebar:
     st.caption("""Nota: dados de fluxo são somados no mês; PL é o último do mês.
                
                Variação_% = (PLFinal/PLInicial) -1)""")
+
 
 
 
