@@ -84,7 +84,7 @@ st.markdown(
     f"""
     <div class="logo-container">
         <div class="logo-box" style="width: 180px;">{svg_logo}</div>
-        <h1>🏦 Dashboard Institucional – Fundos</h1>
+        <h1>🏦 Dashboard – Fundos</h1>
     </div>
     """,
     unsafe_allow_html=True,
@@ -486,6 +486,7 @@ with st.sidebar:
     st.caption("""Nota: dados de fluxo são somados no mês; PL é o último do mês.
                
                Variação_% = (PLFinal/PLInicial) -1)""")
+
 
 
 
