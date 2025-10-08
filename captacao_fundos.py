@@ -99,13 +99,14 @@ CD_URL  = "https://api.comdinheiro.com.br/v1/ep1/import-data"
 
 # Nota: periodicidade diária → vamos agregar para MÊS no código
 URL_PARAM = (
-    "HistoricoIndicadoresFundos001.php%3F%26cnpjs%3D03890892000131%2B38090006000170%2B44196960000144"
-    "%2B41545780000132%2B43216301000160%2B49692303000101%2B54973692000183%2B55597133000189"
+    "HistoricoIndicadoresFundos001.php%3F%26cnpjs%3D03890892000131%2B38090006000170"
+    "%2B49692303000101%2B55597133000189"
     "%2B55753904000180%2B57499088000155%2B57565778000165%2B57682222000159%2B60334542000122"
     "%26data_ini%3D13112023%26data_fim%3D31129999%26indicadores%3Dnome_fundo%2Bpatrimonio%2Bcaptacao%2Bresgate"
     "%26op01%3Dtabela_v%26num_casas%3D2%26enviar_email%3D0%26periodicidade%3Ddiaria%26cabecalho_excel%3Dmodo3"
     "%26transpor%3D0%26asc_desc%3Ddesc%26tipo_grafico%3Dlinha%26relat_alias_automatico%3Dcmd_alias_01"
 )
+
 
 # ----------------------------------------------------
 # HELPERS
@@ -486,6 +487,7 @@ with st.sidebar:
     st.caption("""Nota: dados de fluxo são somados no mês; PL é o último do mês.
                
                Variação_% = (PLFinal/PLInicial) -1)""")
+
 
 
 
