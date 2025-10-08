@@ -41,6 +41,16 @@ st.markdown(
         margin: 0 0 5px 0;
     }
 
+    /* Fundo fixo preto para o logo */
+    .logo-box {
+        background-color: #000000;
+        padding: 10px 15px;
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
     /* Ajustes automáticos para tema claro/escuro */
     @media (prefers-color-scheme: dark) {
         body {
@@ -48,8 +58,6 @@ st.markdown(
             color: #EAEAEA !important;
         }
         h1 { color: #EAEAEA !important; }
-        .logo-light {display: none;}
-        .logo-dark {display: block;}
     }
 
     @media (prefers-color-scheme: light) {
@@ -58,13 +66,25 @@ st.markdown(
             color: #1E1E1E !important;
         }
         h1 { color: #1E1E1E !important; }
-        .logo-dark {display: none;}
-        .logo-light {display: block;}
     }
     </style>
     """,
     unsafe_allow_html=True,
 )
+
+# --- Renderiza cabeçalho com fundo preto no logo ---
+st.markdown(
+    f"""
+    <div class="logo-container">
+        <div class="logo-box" style="width: 180px;">
+            {logo_light}
+        </div>
+        <h1>🏦 Dashboard Institucional – Fundos</h1>
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
+
 
 # --- Lê versões do logo ---
 def read_svg(filename):
@@ -469,6 +489,7 @@ with st.sidebar:
     st.caption("""Nota: dados de fluxo são somados no mês; PL é o último do mês.
                
                Variação_% = (PLFinal/PLInicial) -1)""")
+
 
 
 
