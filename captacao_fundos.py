@@ -11,7 +11,7 @@ import streamlit as st
 import os
 
 # ----------------------------------------------------
-# CONFIG INICIAL E LOGO (detecção automática de tema)
+# CONFIG INICIAL E LOGO (fundo preto fixo + fallback)
 # ----------------------------------------------------
 st.set_page_config(layout="wide", page_title="Dashboard Institucional – Fundos")
 
@@ -41,7 +41,7 @@ st.markdown(
         margin: 0 0 5px 0;
     }
 
-    /* Fundo fixo preto para o logo */
+    /* Fundo fixo preto para o logo (independe do tema) */
     .logo-box {
         background-color: #000000;
         padding: 10px 15px;
@@ -51,20 +51,13 @@ st.markdown(
         justify-content: center;
     }
 
-    /* Ajustes automáticos para tema claro/escuro */
+    /* Tema do app segue o navegador */
     @media (prefers-color-scheme: dark) {
-        body {
-            background-color: #0E1117 !important;
-            color: #EAEAEA !important;
-        }
+        body { background-color: #0E1117 !important; color: #EAEAEA !important; }
         h1 { color: #EAEAEA !important; }
     }
-
     @media (prefers-color-scheme: light) {
-        body {
-            background-color: #FFFFFF !important;
-            color: #1E1E1E !important;
-        }
+        body { background-color: #FFFFFF !important; color: #1E1E1E !important; }
         h1 { color: #1E1E1E !important; }
     }
     </style>
@@ -72,45 +65,30 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# --- Renderiza cabeçalho com fundo preto no logo ---
+# --- utilitário para ler SVG com fallback ---
+def load_svg(*filenames: str) -> str:
+    for fn in filenames:
+        try:
+            with open(fn, "r", encoding="utf-8") as f:
+                return f.read()
+        except FileNotFoundError:
+            continue
+    # placeholder simples caso nenhum arquivo exista
+    return "<div style='color:#fff;font:12px sans-serif'>LOGO</div>"
+
+# escolha a ordem de preferência dos arquivos de logo
+svg_logo = load_svg("logo_light.svg", "logo.svg", "logo_dark.svg")
+
+# --- Renderiza cabeçalho (logo SEMPRE sobre fundo preto) ---
 st.markdown(
     f"""
     <div class="logo-container">
-        <div class="logo-box" style="width: 180px;">
-            {logo_light}
-        </div>
+        <div class="logo-box" style="width: 180px;">{svg_logo}</div>
         <h1>🏦 Dashboard Institucional – Fundos</h1>
     </div>
     """,
     unsafe_allow_html=True,
 )
-
-
-# --- Lê versões do logo ---
-def read_svg(filename):
-    try:
-        with open(filename, "r", encoding="utf-8") as f:
-            return f.read()
-    except FileNotFoundError:
-        return f"<!-- {filename} não encontrado -->"
-
-logo_light = read_svg("logo_light.svg")  # versão escura (para fundo claro)
-logo_dark = read_svg("logo_dark.svg")    # versão clara (para fundo escuro)
-
-# --- Renderiza cabeçalho ---
-st.markdown(
-    f"""
-    <div class="logo-container">
-        <div style="width: 160px;">
-            <div class="logo-light">{logo_light}</div>
-            <div class="logo-dark">{logo_dark}</div>
-        </div>
-        <h1>🏦 Dashboard Institucional – Fundos</h1>
-    </div>
-    """,
-    unsafe_allow_html=True,
-)
-
 
 # ----------------------------------------------------
 # CREDENCIAIS LOCAIS (sem st.secrets)
@@ -489,6 +467,7 @@ with st.sidebar:
     st.caption("""Nota: dados de fluxo são somados no mês; PL é o último do mês.
                
                Variação_% = (PLFinal/PLInicial) -1)""")
+
 
 
 
