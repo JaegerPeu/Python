@@ -7,66 +7,66 @@ import plotly.express as px
 import plotly.graph_objects as go
 from datetime import date
 import streamlit as st
+import streamlit as st
+import os
 
 # ----------------------------------------------------
-# CONFIG INICIAL E LOGO (tema manual + dinâmico)
+# CONFIG INICIAL E LOGO (detecção automática de tema)
 # ----------------------------------------------------
 st.set_page_config(layout="wide", page_title="Dashboard Institucional – Fundos")
 
-# Inicializa tema na sessão (Light padrão)
-if "theme_mode" not in st.session_state:
-    st.session_state["theme_mode"] = "Light"
+# Tema padrão dos gráficos Plotly
+PLOT_TEMPLATE = "plotly_white"
 
-# Botão no canto direito para alternar tema
-col1, col2 = st.columns([9, 1])
-with col2:
-    toggle = st.toggle("🌙 Escuro" if st.session_state["theme_mode"] == "Light" else "☀️ Claro")
-    if toggle:
-        st.session_state["theme_mode"] = (
-            "Dark" if st.session_state["theme_mode"] == "Light" else "Light"
-        )
-
-# Define cores e logos conforme o tema atual
-if st.session_state["theme_mode"] == "Dark":
-    bg_color = "#0E1117"
-    text_color = "#EAEAEA"
-    logo_file = "logo_dark.svg"  # logo branco
-    PLOT_TEMPLATE = "plotly_dark"
-else:
-    bg_color = "#FFFFFF"
-    text_color = "#1E1E1E"
-    logo_file = "logo_light.svg"  # logo escuro
-    PLOT_TEMPLATE = "plotly_white"
-
-# --- CSS dinâmico ---
+# --- CSS limpo e responsivo ---
 st.markdown(
-    f"""
+    """
     <style>
-    body {{
-        background-color: {bg_color};
-        color: {text_color};
-    }}
-    #MainMenu {{visibility: hidden;}}
-    footer {{visibility: hidden;}}
-    header {{visibility: hidden;}}
-    h1 {{
-        font-size: 30px !important;
-        font-weight: 700;
-        margin: 0 0 5px 0;
-        color: {text_color};
-    }}
-    .logo-container {{
+    /* Oculta menu e footer padrão */
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+    header {visibility: hidden;}
+
+    /* Layout do logo e título */
+    .logo-container {
         display: flex;
         align-items: center;
         gap: 15px;
         margin-bottom: 25px;
-    }}
+    }
+
+    h1 {
+        font-size: 30px !important;
+        font-weight: 700;
+        margin: 0 0 5px 0;
+    }
+
+    /* Ajustes automáticos para tema claro/escuro */
+    @media (prefers-color-scheme: dark) {
+        body {
+            background-color: #0E1117 !important;
+            color: #EAEAEA !important;
+        }
+        h1 { color: #EAEAEA !important; }
+        .logo-light {display: none;}
+        .logo-dark {display: block;}
+    }
+
+    @media (prefers-color-scheme: light) {
+        body {
+            background-color: #FFFFFF !important;
+            color: #1E1E1E !important;
+        }
+        h1 { color: #1E1E1E !important; }
+        .logo-dark {display: none;}
+        .logo-light {display: block;}
+    }
     </style>
     """,
     unsafe_allow_html=True,
 )
 
-# --- Função para ler logo ---
+# --- Lê versões do logo ---
 def read_svg(filename):
     try:
         with open(filename, "r", encoding="utf-8") as f:
@@ -74,113 +74,23 @@ def read_svg(filename):
     except FileNotFoundError:
         return f"<!-- {filename} não encontrado -->"
 
-# Carrega o logo correto (1 único)
-svg_logo = read_svg(logo_file)
+logo_light = read_svg("logo_light.svg")  # versão escura (para fundo claro)
+logo_dark = read_svg("logo_dark.svg")    # versão clara (para fundo escuro)
 
 # --- Renderiza cabeçalho ---
 st.markdown(
     f"""
     <div class="logo-container">
-        <div style="width: 160px;">{svg_logo}</div>
+        <div style="width: 160px;">
+            <div class="logo-light">{logo_light}</div>
+            <div class="logo-dark">{logo_dark}</div>
+        </div>
         <h1>🏦 Dashboard Institucional – Fundos</h1>
     </div>
     """,
     unsafe_allow_html=True,
 )
 
-
-# --- Lê o logo atual ---
-def read_svg(filename):
-    try:
-        with open(filename, "r", encoding="utf-8") as f:
-            return f.read()
-    except FileNotFoundError:
-        return f"<!-- {filename} não encontrado -->"
-
-svg_logo = read_svg(logo_file)
-
-# --- Renderiza o cabeçalho institucional ---
-st.markdown(
-    f"""
-    <div class="logo-container">
-        <div style="width: 160px;">{svg_logo}</div>
-        <h1>🏦 Dashboard Institucional – Fundos</h1>
-    </div>
-    """,
-    unsafe_allow_html=True,
-)
-
-
-# --- Lê versões do logo (claro e escuro) ---
-def read_svg(filename):
-    try:
-        with open(filename, "r", encoding="utf-8") as f:
-            return f.read()
-    except FileNotFoundError:
-        return f"<!-- {filename} não encontrado -->"
-
-logo_light = read_svg("logo_light.svg")  # versão escura (para fundo claro)
-logo_dark = read_svg("logo_dark.svg")    # versão clara (para fundo escuro)
-
-# --- Renderiza o cabeçalho dinâmico ---
-st.markdown(
-    f"""
-    <div class="logo-container">
-        <div style="width: 160px;">
-            <div class="logo-light">{logo_light}</div>
-            <div class="logo-dark">{logo_dark}</div>
-        </div>
-        <h1>🏦 Dashboard – Fundos</h1>
-    </div>
-    """,
-    unsafe_allow_html=True,
-)
-
-
-# --- Lê versões do logo (claro e escuro) ---
-def read_svg(filename):
-    try:
-        with open(filename, "r", encoding="utf-8") as f:
-            return f.read()
-    except FileNotFoundError:
-        return f"<!-- {filename} não encontrado -->"
-
-logo_light = read_svg("logo_light.svg")  # versão escura (para fundo claro)
-logo_dark = read_svg("logo_dark.svg")    # versão clara (para fundo escuro)
-
-# --- Renderiza o cabeçalho dinâmico ---
-st.markdown(
-    f"""
-    <div class="logo-container">
-        <div style="width: 160px;">
-            <div class="logo-light">{logo_light}</div>
-            <div class="logo-dark">{logo_dark}</div>
-        </div>
-        <h1>🏦 Dashboard – Fundos</h1>
-    </div>
-    """,
-    unsafe_allow_html=True,
-)
-
-
-# --- Lê o arquivo SVG local ---
-# (coloque o arquivo logo_solutions.svg na mesma pasta do app)
-try:
-    with open("logo.svg", "r", encoding="utf-8") as f:
-        svg_logo = f.read()
-except FileNotFoundError:
-    svg_logo = "<!-- logo não encontrado -->"
-
-# --- Renderiza o cabeçalho com logo e título ---
-st.markdown(
-    f"""
-    <div class="logo-container">
-        <div style="width: 160px;">{svg_logo}</div>
-        <h1>Dashboard – Fundos</h1>
-    </div>
-    """,
-    unsafe_allow_html=True,
-)
 
 # ----------------------------------------------------
 # CREDENCIAIS LOCAIS (sem st.secrets)
@@ -559,6 +469,7 @@ with st.sidebar:
     st.caption("""Nota: dados de fluxo são somados no mês; PL é o último do mês.
                
                Variação_% = (PLFinal/PLInicial) -1)""")
+
 
 
 
