@@ -80,6 +80,32 @@ st.markdown(
 )
 
 
+# --- Lê versões do logo (claro e escuro) ---
+def read_svg(filename):
+    try:
+        with open(filename, "r", encoding="utf-8") as f:
+            return f.read()
+    except FileNotFoundError:
+        return f"<!-- {filename} não encontrado -->"
+
+logo_light = read_svg("logo_light.svg")  # versão escura (para fundo claro)
+logo_dark = read_svg("logo_dark.svg")    # versão clara (para fundo escuro)
+
+# --- Renderiza o cabeçalho dinâmico ---
+st.markdown(
+    f"""
+    <div class="logo-container">
+        <div style="width: 160px;">
+            <div class="logo-light">{logo_light}</div>
+            <div class="logo-dark">{logo_dark}</div>
+        </div>
+        <h1>🏦 Dashboard – Fundos</h1>
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
+
+
 # --- Lê o arquivo SVG local ---
 # (coloque o arquivo logo_solutions.svg na mesma pasta do app)
 try:
@@ -476,6 +502,7 @@ with st.sidebar:
     st.caption("""Nota: dados de fluxo são somados no mês; PL é o último do mês.
                
                Variação_% = (PLFinal/PLInicial) -1)""")
+
 
 
 
