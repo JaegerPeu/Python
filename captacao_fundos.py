@@ -6,53 +6,87 @@ import streamlit as st
 import plotly.express as px
 import plotly.graph_objects as go
 from datetime import date
-# ----------------------------------------------------
-# CONFIG INICIAL E LOGO (com detecção de tema)
-# ----------------------------------------------------
-st.set_page_config(layout="wide")
+import streamlit as st
+import os
+from datetime import date
 
-# Tema padrão para gráficos Plotly
-PLOT_TEMPLATE = "plotly_white"
+# ----------------------------------------------------
+# CONFIG INICIAL E LOGO (tema manual + dinâmico)
+# ----------------------------------------------------
+st.set_page_config(layout="wide", page_title="Dashboard Institucional – Fundos")
 
-# --- CSS opcional para layout limpo e responsivo ---
+# Inicializa tema na sessão (Light padrão)
+if "theme_mode" not in st.session_state:
+    st.session_state["theme_mode"] = "Light"
+
+# Botão no canto direito para alternar tema
+col1, col2 = st.columns([9, 1])
+with col2:
+    toggle = st.toggle("🌙 Escuro" if st.session_state["theme_mode"] == "Light" else "☀️ Claro")
+    if toggle:
+        st.session_state["theme_mode"] = "Dark" if st.session_state["theme_mode"] == "Light" else "Light"
+
+# Define cores e logos conforme o tema atual
+if st.session_state["theme_mode"] == "Dark":
+    bg_color = "#0E1117"
+    text_color = "#EAEAEA"
+    logo_file = "logo_dark.svg"
+    PLOT_TEMPLATE = "plotly_dark"
+else:
+    bg_color = "#FFFFFF"
+    text_color = "#1E1E1E"
+    logo_file = "logo_light.svg"
+    PLOT_TEMPLATE = "plotly_white"
+
+# --- CSS dinâmico ---
 st.markdown(
-    """
+    f"""
     <style>
-    /* Oculta menu, footer e header padrão do Streamlit */
-    #MainMenu {visibility: hidden;}
-    footer {visibility: hidden;}
-    header {visibility: hidden;}
-
-    /* Estilo do título */
-    h1 {
+    body {{
+        background-color: {bg_color};
+        color: {text_color};
+    }}
+    #MainMenu {{visibility: hidden;}}
+    footer {{visibility: hidden;}}
+    header {{visibility: hidden;}}
+    h1 {{
         font-size: 30px !important;
         font-weight: 700;
         margin: 0 0 5px 0;
-    }
-
-    /* Container do logo e título */
-    .logo-container {
+        color: {text_color};
+    }}
+    .logo-container {{
         display: flex;
         align-items: center;
         gap: 15px;
         margin-bottom: 25px;
-    }
-
-    /* Ajuste para tema escuro/claro */
-    @media (prefers-color-scheme: dark) {
-        .logo-light {display: none;}
-        .logo-dark {display: block;}
-        h1 {color: #EAEAEA;}
-    }
-    @media (prefers-color-scheme: light) {
-        .logo-dark {display: none;}
-        .logo-light {display: block;}
-        h1 {color: #1E1E1E;}
-    }
+    }}
     </style>
     """,
     unsafe_allow_html=True,
 )
+
+# --- Lê o logo atual ---
+def read_svg(filename):
+    try:
+        with open(filename, "r", encoding="utf-8") as f:
+            return f.read()
+    except FileNotFoundError:
+        return f"<!-- {filename} não encontrado -->"
+
+svg_logo = read_svg(logo_file)
+
+# --- Renderiza o cabeçalho institucional ---
+st.markdown(
+    f"""
+    <div class="logo-container">
+        <div style="width: 160px;">{svg_logo}</div>
+        <h1>🏦 Dashboard Institucional – Fundos</h1>
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
+
 
 # --- Lê versões do logo (claro e escuro) ---
 def read_svg(filename):
@@ -502,6 +536,7 @@ with st.sidebar:
     st.caption("""Nota: dados de fluxo são somados no mês; PL é o último do mês.
                
                Variação_% = (PLFinal/PLInicial) -1)""")
+
 
 
 
