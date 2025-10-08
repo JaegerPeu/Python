@@ -379,13 +379,28 @@ if not dfp.empty:
     heat = heat.loc[heat.sum(axis=1).sort_values(ascending=False).index]
 
     fig_hm = px.imshow(
-        heat,
-        aspect="auto",
-        title="Captação Líquida por Fundo e Mês",
-        labels=dict(color="R$"),
-        text_auto=False,
-    )
-    fig_hm.update_layout(template=PLOT_TEMPLATE, margin=dict(l=10, r=10, t=60, b=10))
+    heat,
+    aspect="auto",
+    title="Captação Líquida por Fundo e Mês",
+    labels=dict(color="Captação Líquida (R$)"),
+    text_auto=False,
+    color_continuous_scale="RdYlGn",  # vermelho → zero → verde
+    zmin=-abs(heat.values).max(),     # força centro simétrico
+    zmax=abs(heat.values).max(),
+)
+
+fig_hm.update_layout(
+    template=PLOT_TEMPLATE,
+    margin=dict(l=10, r=10, t=60, b=10),
+    coloraxis_colorbar=dict(
+        title="Fluxo Líquido (R$)",
+        ticksuffix="",
+        orientation="v",
+        lenmode="fraction",
+        len=0.75,
+    ),
+)
+
     st.plotly_chart(fig_hm, use_container_width=True)
 
     c2 = st.columns([1, 5])[0]
@@ -468,6 +483,7 @@ with st.sidebar:
     st.caption("""Nota: dados de fluxo são somados no mês; PL é o último do mês.
                
                Variação_% = (PLFinal/PLInicial) -1)""")
+
 
 
 
