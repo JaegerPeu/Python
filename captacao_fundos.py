@@ -224,7 +224,8 @@ def slice_period_monthly(df, start, end):
     m["Captação Líquida"] = m["Captacao"] - m["Resgate"]
 
     # Data = fim do mês (para eixo X coerente)
-    m["Data"] = m["AnoMes"].dt.to_timestamp("M")
+    m["Data"] = m["AnoMes"].dt.to_timestamp("M") - pd.offsets.MonthBegin(1)
+
     m = m.sort_values(["Fundo", "Data"])
 
         # ΔPL e Efeito Mercado
@@ -467,6 +468,7 @@ with st.sidebar:
     st.caption("""Nota: dados de fluxo são somados no mês; PL é o último do mês.
                
                Variação_% = (PLFinal/PLInicial) -1)""")
+
 
 
 
