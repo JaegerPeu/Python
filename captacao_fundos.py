@@ -8,12 +8,57 @@ import plotly.graph_objects as go
 from datetime import date
 
 # ----------------------------------------------------
-# CONFIG
+# CONFIG INICIAL E LOGO
 # ----------------------------------------------------
 st.set_page_config(page_title="Dashboard Institucional – Fundos", layout="wide")
-st.title("🏦 Dashboard Institucional – Fundos")
 
-PLOT_TEMPLATE = "plotly_white"
+# --- CSS opcional para deixar o layout mais limpo ---
+st.markdown(
+    """
+    <style>
+    /* Oculta o menu, footer e cabeçalho padrão do Streamlit */
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+    header {visibility: hidden;}
+
+    /* Estilo do título */
+    h1 {
+        font-size: 30px !important;
+        font-weight: 700;
+        margin: 0 0 5px 0;
+        color: #1E1E1E;
+    }
+
+    /* Margem inferior menor no logo para alinhar */
+    .logo-container {
+        display: flex;
+        align-items: center;
+        gap: 15px;
+        margin-bottom: 20px;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
+
+# --- Lê o arquivo SVG local ---
+# (coloque o arquivo logo_solutions.svg na mesma pasta do app)
+try:
+    with open("logo.svg", "r", encoding="utf-8") as f:
+        svg_logo = f.read()
+except FileNotFoundError:
+    svg_logo = "<!-- logo não encontrado -->"
+
+# --- Renderiza o cabeçalho com logo e título ---
+st.markdown(
+    f"""
+    <div class="logo-container">
+        <div style="width: 160px;">{svg_logo}</div>
+        <h1>🏦 Dashboard Institucional – Fundos (ComDinheiro)</h1>
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
 
 # ----------------------------------------------------
 # CREDENCIAIS LOCAIS (sem st.secrets)
@@ -392,3 +437,4 @@ with st.sidebar:
     st.caption("""Nota: dados de fluxo são somados no mês; PL é o último do mês.
                
                Variação_% = (PLFinal/PLInicial) -1)""")
+
