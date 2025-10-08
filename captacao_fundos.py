@@ -11,6 +11,9 @@ from datetime import date
 # CONFIG INICIAL E LOGO
 # ----------------------------------------------------
 st.set_page_config(page_title="Dashboard Institucional – Fundos", layout="wide")
+# Tema padrão dos gráficos Plotly
+PLOT_TEMPLATE = "plotly_white"
+
 
 # --- CSS opcional para deixar o layout mais limpo ---
 st.markdown(
@@ -54,7 +57,7 @@ st.markdown(
     f"""
     <div class="logo-container">
         <div style="width: 160px;">{svg_logo}</div>
-        <h1>🏦 Dashboard Institucional – Fundos (ComDinheiro)</h1>
+        <h1>Dashboard – Fundos</h1>
     </div>
     """,
     unsafe_allow_html=True,
@@ -437,4 +440,5 @@ with st.sidebar:
     st.caption("""Nota: dados de fluxo são somados no mês; PL é o último do mês.
                
                Variação_% = (PLFinal/PLInicial) -1)""")
+
 
