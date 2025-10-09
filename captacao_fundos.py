@@ -296,23 +296,25 @@ df_raw = fetch_raw()
 with st.sidebar:
     st.header("🎚️ Filtros Gerais")
 
-    # opções únicas (com tratamento pra ausência)
-    formas = sorted([f for f in df_raw["Forma"].dropna().unique()]) if "Forma" in df_raw.columns else []
-    exclusivos = sorted([e for e in df_raw["Exclusivo"].dropna().unique()]) if "Exclusivo" in df_raw.columns else []
-    fundos = sorted([f for f in df_raw["Fundo"].dropna().unique()]) if "Fundo" in df_raw.columns else []
+    formas_opts = sorted(df_raw["Forma"].dropna().unique()) if "Forma" in df_raw.columns else []
+    exc_opts    = sorted(df_raw["Exclusivo"].dropna().unique()) if "Exclusivo" in df_raw.columns else []
+    fundos_opts = sorted(df_raw["Fundo"].dropna().unique()) if "Fundo" in df_raw.columns else []
 
-    # filtros múltiplos
-    forma_sel = st.multiselect("Forma:", formas, default=formas)
-    exclusivo_sel = st.multiselect("Exclusivo:", exclusivos, default=exclusivos)
-    fundo_sel = st.multiselect("Fundos:", fundos, default=fundos)
+    forma_sel = st.multiselect("Forma:", formas_opts, default=formas_opts) if formas_opts else []
+    exclusivo_sel = st.multiselect("Exclusivo:", exc_opts, default=exc_opts) if exc_opts else []
+    fundo_sel = st.multiselect("Fundos:", fundos_opts, default=fundos_opts) if fundos_opts else []
 
-# aplica os filtros globais
-if "Forma" in df_raw.columns:
+    st.caption("Obs.: se você selecionar **ambas** as formas e **ambos** os status de exclusividade, "
+               "os registros podem se repetir (pois a própria consulta retorna linhas por forma/exclusivo).")
+
+# aplica filtros
+if forma_sel:
     df_raw = df_raw[df_raw["Forma"].isin(forma_sel)]
-if "Exclusivo" in df_raw.columns:
+if exclusivo_sel:
     df_raw = df_raw[df_raw["Exclusivo"].isin(exclusivo_sel)]
-if "Fundo" in df_raw.columns:
+if fundo_sel:
     df_raw = df_raw[df_raw["Fundo"].isin(fundo_sel)]
+
 
 start_ts, end_ts = period_presets_ui(df_raw)
 dfp = slice_period_monthly(df_raw, start_ts, end_ts)  # <<< agora MENSAL
@@ -511,6 +513,7 @@ with st.sidebar:
     st.caption("""Nota: dados de fluxo são somados no mês; PL é o último do mês.
                
                Variação_% = (PLFinal/PLInicial) -1)""")
+
 
 
 
