@@ -102,7 +102,7 @@ URL_PARAM = (
     "HistoricoIndicadoresFundos001.php%3F%26cnpjs%3D03890892000131%2B38090006000170"
     "%2B49692303000101%2B55597133000189"
     "%2B55753904000180%2B57499088000155%2B57565778000165%2B57682222000159%2B60334542000122%2B60800845000193_unica"
-    "%26data_ini%3D13112023%26data_fim%3D31129999%26indicadores%3Dnome_fundo%2Bpatrimonio%2Bcaptacao%2Bresgate"
+    "%26data_ini%3D13112023%26data_fim%3D31129999%26indicadores%3Dnome_fundo%2Bpatrimonio%2Bcaptacao%2Bresgate%2Bforma%2Bexclusivo"
     "%26op01%3Dtabela_v%26num_casas%3D2%26enviar_email%3D0%26periodicidade%3Ddiaria%26cabecalho_excel%3Dmodo3"
     "%26transpor%3D0%26asc_desc%3Ddesc%26tipo_grafico%3Dlinha%26relat_alias_automatico%3Dcmd_alias_01"
 )
@@ -290,6 +290,30 @@ def ranking_fundos(dfp):
 # 4) UI – CONTROLES & DADOS
 # ----------------------------------------------------
 df_raw = fetch_raw()
+# ----------------------------------------------------
+# 🔍 FILTROS GERAIS (Forma, Exclusivo e Fundo)
+# ----------------------------------------------------
+with st.sidebar:
+    st.header("🎚️ Filtros Gerais")
+
+    # opções únicas (com tratamento pra ausência)
+    formas = sorted([f for f in df_raw["Forma"].dropna().unique()]) if "Forma" in df_raw.columns else []
+    exclusivos = sorted([e for e in df_raw["Exclusivo"].dropna().unique()]) if "Exclusivo" in df_raw.columns else []
+    fundos = sorted([f for f in df_raw["Fundo"].dropna().unique()]) if "Fundo" in df_raw.columns else []
+
+    # filtros múltiplos
+    forma_sel = st.multiselect("Forma:", formas, default=formas)
+    exclusivo_sel = st.multiselect("Exclusivo:", exclusivos, default=exclusivos)
+    fundo_sel = st.multiselect("Fundos:", fundos, default=fundos)
+
+# aplica os filtros globais
+if "Forma" in df_raw.columns:
+    df_raw = df_raw[df_raw["Forma"].isin(forma_sel)]
+if "Exclusivo" in df_raw.columns:
+    df_raw = df_raw[df_raw["Exclusivo"].isin(exclusivo_sel)]
+if "Fundo" in df_raw.columns:
+    df_raw = df_raw[df_raw["Fundo"].isin(fundo_sel)]
+
 start_ts, end_ts = period_presets_ui(df_raw)
 dfp = slice_period_monthly(df_raw, start_ts, end_ts)  # <<< agora MENSAL
 
@@ -487,6 +511,7 @@ with st.sidebar:
     st.caption("""Nota: dados de fluxo são somados no mês; PL é o último do mês.
                
                Variação_% = (PLFinal/PLInicial) -1)""")
+
 
 
 
