@@ -293,25 +293,51 @@ df_raw = fetch_raw()
 # ----------------------------------------------------
 # 🔍 FILTROS GERAIS (Forma, Exclusivo e Fundo)
 # ----------------------------------------------------
+
+# garante que há coluna de Data
+if "Data" in df_raw.columns:
+    df_latest = df_raw.sort_values("Data").groupby("Fundo", as_index=False).tail(1)
+else:
+    df_latest = df_raw.copy()
+
+# obtém os valores únicos mais recentes de cada fundo
+formas_opts = sorted(df_latest["Forma"].dropna().unique()) if "Forma" in df_latest.columns else []
+exclusivos_opts = sorted(df_latest["Exclusivo"].dropna().unique()) if "Exclusivo" in df_latest.columns else []
+fundos_opts = sorted(df_raw["Fundo"].dropna().unique()) if "Fundo" in df_raw.columns else []
+
 with st.sidebar:
     st.header("🎚️ Filtros Gerais")
 
-    formas_opts = sorted(df_raw["Forma"].dropna().unique()) if "Forma" in df_raw.columns else []
-    exc_opts    = sorted(df_raw["Exclusivo"].dropna().unique()) if "Exclusivo" in df_raw.columns else []
-    fundos_opts = sorted(df_raw["Fundo"].dropna().unique()) if "Fundo" in df_raw.columns else []
+    forma_sel = st.multiselect(
+        "Forma:", 
+        options=formas_opts,
+        default=formas_opts,
+        help="Seleciona o tipo de forma (Aberto, Fechado, etc.)"
+    )
 
-    forma_sel = st.multiselect("Forma:", formas_opts, default=formas_opts) if formas_opts else []
-    exclusivo_sel = st.multiselect("Exclusivo:", exc_opts, default=exc_opts) if exc_opts else []
-    fundo_sel = st.multiselect("Fundos:", fundos_opts, default=fundos_opts) if fundos_opts else []
+    exclusivo_sel = st.multiselect(
+        "Exclusivo:", 
+        options=exclusivos_opts,
+        default=exclusivos_opts,
+        help="Seleciona se o fundo é exclusivo (Sim/Não)"
+    )
 
-    st.caption("Obs.: se você selecionar **ambas** as formas e **ambos** os status de exclusividade, "
-               "os registros podem se repetir (pois a própria consulta retorna linhas por forma/exclusivo).")
+    fundo_sel = st.multiselect(
+        "Fundos:",
+        options=fundos_opts,
+        default=fundos_opts,
+        help="Seleciona 1 ou mais fundos específicos"
+    )
 
-# aplica filtros
-if forma_sel:
-    df_raw = df_raw[df_raw["Forma"].isin(forma_sel)]
-if exclusivo_sel:
-    df_raw = df_raw[df_raw["Exclusivo"].isin(exclusivo_sel)]
+# aplica os filtros
+if forma_sel and "Forma" in df_raw.columns:
+    fundos_forma = df_latest[df_latest["Forma"].isin(forma_sel)]["Fundo"]
+    df_raw = df_raw[df_raw["Fundo"].isin(fundos_forma)]
+
+if exclusivo_sel and "Exclusivo" in df_raw.columns:
+    fundos_exclus = df_latest[df_latest["Exclusivo"].isin(exclusivo_sel)]["Fundo"]
+    df_raw = df_raw[df_raw["Fundo"].isin(fundos_exclus)]
+
 if fundo_sel:
     df_raw = df_raw[df_raw["Fundo"].isin(fundo_sel)]
 
@@ -513,6 +539,7 @@ with st.sidebar:
     st.caption("""Nota: dados de fluxo são somados no mês; PL é o último do mês.
                
                Variação_% = (PLFinal/PLInicial) -1)""")
+
 
 
 
