@@ -9,15 +9,20 @@ from datetime import date
 # ====================================================
 # CONFIG INICIAL
 # ====================================================
-st.set_page_config(page_title="Dashboard Institucional – Fundos", layout="wide")
+st.set_page_config(
+    page_title="Dashboard Institucional – Fundos",
+    layout="wide",
+    initial_sidebar_state="expanded"  # abre a sidebar por padrão
+)
 PLOT_TEMPLATE = "plotly_white"
 
 # ====================================================
-# ESTILO VISUAL
+# ESTILO VISUAL (CSS)
 # ====================================================
 st.markdown("""
 <style>
-#MainMenu, footer, header {visibility: hidden;}
+#MainMenu {visibility: hidden;}
+footer {visibility: hidden;}
 .logo-container {
     display: flex; align-items: center; gap: 15px; margin-bottom: 25px;
 }
@@ -31,9 +36,9 @@ h1 {
 </style>
 """, unsafe_allow_html=True)
 
-# ----------------------------------------------------
+# ====================================================
 # LOGO E TÍTULO
-# ----------------------------------------------------
+# ====================================================
 def load_svg(*names):
     for n in names:
         try:
@@ -121,13 +126,11 @@ def aggregate_monthly(df, start, end):
     df["AnoMes"] = df["Data"].dt.to_period("M")
     df.sort_values(["Fundo", "Data"], inplace=True)
 
-    # último PL do mês
     pl = (
         df.groupby(["Fundo", "AnoMes"], as_index=False)
         .tail(1)[["Fundo", "AnoMes", "Patrimonio"]]
     )
 
-    # fluxos mensais
     flows = df.groupby(["Fundo", "AnoMes"], as_index=False)[["Captacao", "Resgate"]].sum()
     m = pl.merge(flows, on=["Fundo", "AnoMes"], how="left")
     m["Captação Líquida"] = m["Captacao"].fillna(0) - m["Resgate"].fillna(0)
@@ -144,8 +147,8 @@ with st.sidebar:
     st.header("🎚️ Filtros Gerais")
 
     df_latest = df_raw.sort_values("Data").groupby("Fundo", as_index=False).tail(1)
-    formas = sorted(df_latest["Forma"].dropna().unique()) or []
-    exclusivos = sorted(df_latest["Exclusivo"].dropna().unique()) or []
+    formas = sorted(df_latest["Forma"].dropna().unique()) if "Forma" in df_latest.columns else []
+    exclusivos = sorted(df_latest["Exclusivo"].dropna().unique()) if "Exclusivo" in df_latest.columns else []
     fundos = sorted(df_raw["Fundo"].dropna().unique())
 
     forma_sel = st.multiselect("Forma:", formas, default=formas)
@@ -168,11 +171,11 @@ with st.sidebar:
     else:
         start, end = st.date_input("Custom (início/fim)", (min_d, max_d), min_value=min_d, max_value=max_d)
 
-# filtros aplicados
-if forma_sel:
+# aplica filtros
+if forma_sel and "Forma" in df_raw.columns:
     fundos_forma = df_latest[df_latest["Forma"].isin(forma_sel)]["Fundo"]
     df_raw = df_raw[df_raw["Fundo"].isin(fundos_forma)]
-if exc_sel:
+if exc_sel and "Exclusivo" in df_raw.columns:
     fundos_exc = df_latest[df_latest["Exclusivo"].isin(exc_sel)]["Fundo"]
     df_raw = df_raw[df_raw["Fundo"].isin(fundos_exc)]
 if fundo_sel:
@@ -263,6 +266,10 @@ if not dff.empty:
     figf = go.Figure()
     figf.add_trace(go.Bar(x=dff["Data"], y=dff["Captação Líquida"], name="Captação Líquida", yaxis="y2", opacity=0.5))
     figf.add_trace(go.Scatter(x=dff["Data"], y=dff["Patrimonio"], name="Patrimônio", line=dict(width=3)))
-    figf.update_layout(template=PLOT_TEMPLATE, title=f"Série Mensal – {f_sel}",
-                       yaxis2=dict(overlaying="y", side="right"), legend=dict(orientation="h", y=-0.2))
+    figf.update_layout(
+        template=PLOT_TEMPLATE,
+        title=f"Série Mensal – {f_sel}",
+        yaxis2=dict(overlaying="y", side="right"),
+        legend=dict(orientation="h", y=-0.2)
+    )
     st.plotly_chart(figf, use_container_width=True)
