@@ -143,17 +143,30 @@ def fetch_raw():
                 {
                     "Data": v["col0"],
                     "Fundo": v["col1"],
-                    "Patrimonio": v["col2"].replace(",", ".") if v["col2"] else None,
-                    "Captacao": v["col3"].replace(",", ".") if v["col3"] else None,
-                    "Resgate": v["col4"].replace(",", ".") if v["col4"] else None,
+                    "Patrimonio": v.get("col2", "").replace(",", ".") if v.get("col2") else None,
+                    "Captacao": v.get("col3", "").replace(",", ".") if v.get("col3") else None,
+                    "Resgate": v.get("col4", "").replace(",", ".") if v.get("col4") else None,
+                    "Forma": v.get("col5", "").strip().capitalize() if v.get("col5") else None,
+                    "Exclusivo": v.get("col6", "").strip().capitalize() if v.get("col6") else None,
                 }
             )
+
     df = pd.DataFrame(recs)
+
+    # Converte datas e números
     df["Data"] = pd.to_datetime(df["Data"], format="%d/%m/%Y", errors="coerce")
     for c in ["Patrimonio", "Captacao", "Resgate"]:
         df[c] = pd.to_numeric(df[c], errors="coerce")
+
+    # Garante que as colunas Forma/Exclusivo existam mesmo se vierem vazias
+    if "Forma" not in df.columns:
+        df["Forma"] = None
+    if "Exclusivo" not in df.columns:
+        df["Exclusivo"] = None
+
     df = df.dropna(subset=["Data", "Fundo"]).sort_values(["Fundo", "Data"])
     return df
+
 
 # ----------------------------------------------------
 # 2) PRESET DE PERÍODO + FILTRO
@@ -539,6 +552,7 @@ with st.sidebar:
     st.caption("""Nota: dados de fluxo são somados no mês; PL é o último do mês.
                
                Variação_% = (PLFinal/PLInicial) -1)""")
+
 
 
 
