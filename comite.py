@@ -192,28 +192,27 @@ def main():
             else:
                 st.write("Coluna 'Data' não encontrada para plotar série temporal.")
 
-    # Aba Laminas
     with tab_laminas:
         carteira_options = list(df2.columns[1:])
         carteira_selecionada = st.selectbox("Selecione o Portfolio", carteira_options)
         st.header(f"Portfolio: {carteira_selecionada}")
-
+    
         if ("carteira_selecionada_atual" not in st.session_state or
             st.session_state.carteira_selecionada_atual != carteira_selecionada):
             st.session_state.carteira_selecionada_atual = carteira_selecionada
             st.session_state.alocacoes_atualizadas = list(df2[carteira_selecionada].astype(float))
-
+    
         df_sb = pd.DataFrame()
         df_sb["Raiz"] = [carteira_selecionada] * len(df2)
         df_sb["Ativo"] = df2["nome_fundo"] if "nome_fundo" in df2.columns else df2.index
         df_sb["Proporcao"] = st.session_state.alocacoes_atualizadas
-
+    
         df_sb["Classe"] = df_sb["Ativo"].map(ATIVOS_PARA_CLASSE).fillna(df_sb["Ativo"])
         df_sb["Grande Classe"] = df_sb["Classe"].apply(
             lambda x: next((g for g, classes in GRANDES_CLASSES.items() if x in classes), "Outros")
         )
         df_sb = df_sb.dropna(subset=["Raiz", "Grande Classe", "Classe", "Proporcao"])
-
+    
         COLOR_MAP = {
             carteira_selecionada: "#FFFFFF",
             "Equities": "#896F3D",
@@ -222,12 +221,11 @@ def main():
             "Outros": "#C8BEAA",
             "Desconhecido": "#C8BEAA"
         }
-
+    
         with st.expander("Asset Allocation %", expanded=False):
             if st.button("Resetar alocações para valores originais"):
                 st.session_state.alocacoes_atualizadas = list(df2[carteira_selecionada].astype(float))
-                st.experimental_rerun()
-
+    
             cols = st.columns(4)
             nova_alocacao = []
             for i, (idx, row) in enumerate(df_sb.iterrows()):
@@ -242,21 +240,21 @@ def main():
                     key=f"input_{i}_{st.session_state.carteira_selecionada_atual}"
                 )
                 nova_alocacao.append(novo_valor / 100)
-
+    
             st.session_state.alocacoes_atualizadas = nova_alocacao
-
+    
             soma_pct = sum(nova_alocacao) * 100
             st.write(f"**Soma das alocações:** {soma_pct:.2f}%")
-
+    
             df_sb["Proporcao"] = nova_alocacao
             soma = sum(nova_alocacao)
             if abs(soma - 1) > 0.001:
                 st.warning("A soma das alocações não é 100%. Valores serão proporcionados.")
                 df_sb["Proporcao"] = df_sb["Proporcao"] / soma
-
+    
         with st.expander("Composição", expanded=False):
             col1, col2, col3 = st.columns([1, 2, 1])
-
+    
             with col1:
                 st.subheader("Alocação Classe")
                 st.dataframe(
@@ -265,7 +263,7 @@ def main():
                     .set_table_styles([{'selector': 'td, th', 'props': [('text-align', 'center')]}]),
                     use_container_width=True
                 )
-
+    
             with col2:
                 st.subheader("Asset Allocation")
                 fig = px.sunburst(
@@ -279,13 +277,13 @@ def main():
                 fig.update_traces(textinfo="label+percent entry")
                 fig.update_layout(margin=dict(t=35, l=0, r=0, b=0))
                 st.plotly_chart(fig, use_container_width=True)
-
+    
             with col3:
                 st.subheader("Retornos por Período")
                 ativos = df1[df1.columns[0]].tolist()
                 aloc_dict = dict(zip(df_sb["Ativo"], df_sb["Proporcao"]))
                 periodos = df1.columns[1:]
-
+    
                 ret_agg = {}
                 for periodo in periodos:
                     retorno_periodo = 0.0
@@ -295,24 +293,24 @@ def main():
                         if pd.notnull(ret_ativo):
                             retorno_periodo += aloc * ret_ativo
                     ret_agg[periodo] = retorno_periodo * 100
-
+    
                 df_retorno_ponderado = pd.DataFrame.from_dict(ret_agg, orient="index", columns=[carteira_selecionada])
-
+    
                 st.dataframe(
                     df_retorno_ponderado.style.format("{:.2f}%")
                     .set_table_styles([{'selector': 'td, th', 'props': [('text-align', 'center')]}]),
                     use_container_width=True
                 )
-
+    
                 ativos_b3 = [c for c in df3.columns if c != 'Data']
                 prop_dict = dict(zip(df_sb["Ativo"], df_sb["Proporcao"]))
                 proporcoes = [prop_dict.get(ativo, 0) for ativo in ativos_b3]
-
+    
                 retornos = df3[ativos_b3].astype(float).fillna(0).to_numpy() / 100.0
                 proporcoes_np = np.array(proporcoes).reshape(1, -1)
-
+    
                 retornos_ptf = (retornos * proporcoes_np).sum(axis=1)
-
+    
                 st.subheader("Estatísticas de Retorno")
                 mean = np.mean(retornos_ptf) * 100
                 best = np.max(retornos_ptf) * 100
@@ -322,7 +320,7 @@ def main():
                     "": ["Retorno Médio Mensal", "Maior Retorno Mensal", "Menor Retorno Mensal", "Desvio Padrão"],
                     "Valor": [f"{mean:.2f}%", f"{best:.2f}%", f"{worst:.2f}%", f"{std:.2f}%"]
                 })
-
+    
                 st.dataframe(
                     df_stats.set_index("")
                     .style.set_table_styles([
@@ -331,6 +329,8 @@ def main():
                     ]),
                     use_container_width=True
                 )
+    
+        # Continue com o restante do código da aba 'Lâminas' aqui, por exemplo o bloco do backtest
 
         with st.expander("Portfolio Backtest (Rentabilidade Acumulada)", expanded=False):
             df3['Data'] = pd.to_datetime(df3['Data'], dayfirst=True, errors='coerce')
@@ -366,3 +366,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
