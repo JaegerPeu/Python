@@ -252,10 +252,8 @@ def main():
     # Limpa a flag após atualizar os inputs para evitar reset contínuo
     if st.session_state.get("reset_flag", False):
         del st.session_state.reset_flag
-
-
-            soma_pct = sum(nova_alocacao) * 100
-            st.write(f"**Soma das alocações:** {soma_pct:.2f}%")
+        soma_pct = sum(nova_alocacao) * 100
+        st.write(f"**Soma das alocações:** {soma_pct:.2f}%")
 
             df_sb["Proporcao"] = nova_alocacao
             soma = sum(nova_alocacao)
@@ -375,4 +373,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
