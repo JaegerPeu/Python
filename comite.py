@@ -185,7 +185,7 @@ def main():
                         retorno_acum_formatado = rent_acum.iloc[[-1]].applymap(lambda x: f"{x*100:.2f}%")
                         st.write("Rentabilidade acumulada no período selecionado (final):")
                         retorno_acum_formatado = retorno_acum_formatado.T
-                        st.dataframe(retorno_acum_formatado)
+                        st.dataframe(retorno_acum_formatado, use_container_width=False)
 
                     else:
                         st.write("Nenhum dado disponível para o período selecionado.")
@@ -366,6 +366,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
