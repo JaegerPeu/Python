@@ -368,9 +368,7 @@ def main():
     
         st.subheader("Portfolio Backtest")
         st.dataframe(tabela_fmt,use_container_width=True)
-                
+            
 
 if __name__ == "__main__":
     main()
-
-
