@@ -176,15 +176,19 @@ def main():
 
     # Aba Laminas
     with tab_laminas:
-        df2 = fetch_data(payload2, tab_name="tab0")
         carteira_options = list(df2.columns[1:])
         carteira_selecionada = st.selectbox("Selecione o Portfolio", carteira_options)
         st.header(f"Portfolio: {carteira_selecionada}")
 
+        # Ajuste para atualização dinâmica do df_sb e alocacoes com state
+        if ("carteira_selecionada_atual" not in st.session_state) or (st.session_state.carteira_selecionada_atual != carteira_selecionada):
+            st.session_state.carteira_selecionada_atual = carteira_selecionada
+            st.session_state.alocacoes_atualizadas = list(df2[carteira_selecionada].astype(float))
+
         df_sb = pd.DataFrame()
         df_sb["Raiz"] = [carteira_selecionada] * len(df2)
         df_sb["Ativo"] = df2["nome_fundo"] if "nome_fundo" in df2.columns else df2.index
-        df_sb["Proporcao"] = df2[carteira_selecionada].astype(float)
+        df_sb["Proporcao"] = st.session_state.alocacoes_atualizadas
 
         df_sb["Classe"] = df_sb["Ativo"].map(ATIVOS_PARA_CLASSE).fillna(df_sb["Ativo"])
         df_sb["Grande Classe"] = df_sb["Classe"].apply(
@@ -201,12 +205,9 @@ def main():
             "Desconhecido": "#C8BEAA"
         }
 
-        if "alocacoes_atualizadas" not in st.session_state:
-            st.session_state.alocacoes_atualizadas = list(df_sb["Proporcao"])
-
         with st.expander("Asset Allocation %", expanded=False):
             if st.button("Resetar alocações para valores originais"):
-                st.session_state.alocacoes_atualizadas = list(df_sb["Proporcao"])
+                st.session_state.alocacoes_atualizadas = list(df2[carteira_selecionada].astype(float))
 
             n_cols = 4
             cols = st.columns(n_cols)
@@ -237,7 +238,7 @@ def main():
             df_classe = df_classe[df_classe["Proporcao"] > 0]
 
         with st.expander("Composição", expanded=False):
-            col1, col2, col3 = st.columns([1,2,1])
+            col1, col2, col3 = st.columns([1, 2, 1])
 
             with col1:
                 st.subheader("Alocação Classe")
@@ -345,6 +346,7 @@ def main():
 
             st.subheader("Portfolio Backtest")
             st.dataframe(tabela_fmt,use_container_width=True)
+
 
 if __name__ == "__main__":
     main()
