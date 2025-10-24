@@ -226,16 +226,12 @@ def main():
         with st.expander("Asset Allocation %", expanded=False):
             if st.button("Resetar alocações para valores originais"):
                 st.session_state.alocacoes_atualizadas = list(df2[carteira_selecionada].astype(float))
-                st.session_state.reset_flag = True  # flag para indicar reset
-            
+                st.experimental_rerun()
+
             cols = st.columns(4)
             nova_alocacao = []
             for i, (idx, row) in enumerate(df_sb.iterrows()):
                 col = cols[i % 4]
-                key_suffix = ""
-                if st.session_state.get("reset_flag", False):
-                    key_suffix = "_reset"
-                
                 valor_atual_pct = st.session_state.alocacoes_atualizadas[i] * 100
                 novo_valor = col.number_input(
                     f'{row["Ativo"]} (%)',
@@ -243,17 +239,14 @@ def main():
                     max_value=100.0,
                     value=valor_atual_pct,
                     step=0.5,
-                    key=f"input_{i}_{st.session_state.carteira_selecionada_atual}{key_suffix}"
+                    key=f"input_{i}_{st.session_state.carteira_selecionada_atual}"
                 )
                 nova_alocacao.append(novo_valor / 100)
-            
+
             st.session_state.alocacoes_atualizadas = nova_alocacao
-    
-    # Limpa a flag após atualizar os inputs para evitar reset contínuo
-    if st.session_state.get("reset_flag", False):
-        del st.session_state.reset_flag
-        soma_pct = sum(nova_alocacao) * 100
-        st.write(f"**Soma das alocações:** {soma_pct:.2f}%")
+
+            soma_pct = sum(nova_alocacao) * 100
+            st.write(f"**Soma das alocações:** {soma_pct:.2f}%")
 
             df_sb["Proporcao"] = nova_alocacao
             soma = sum(nova_alocacao)
@@ -373,5 +366,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-
