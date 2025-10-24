@@ -4,7 +4,7 @@ import numpy as np
 import streamlit as st
 import plotly.express as px
 import plotly.graph_objects as go
-from datetime import date
+from datetime import date, timedelta
 
 # ====================================================
 # CONFIG INICIAL
@@ -74,7 +74,6 @@ URL_PARAM = (
     "%26op01%3Dtabela_v%26num_casas%3D2%26periodicidade%3Ddiaria"
     "%26cabecalho_excel%3Dmodo3%26transpor%3D0%26asc_desc%3Ddesc"
 )
-
 
 # ====================================================
 # FUNÇÕES DE UTILIDADE
@@ -161,17 +160,23 @@ with st.sidebar:
     st.header("🗓️ Período")
 
     min_d, max_d = df_raw["Data"].min().date(), df_raw["Data"].max().date()
-    this_year = max_d.year
+    # Ajuste para limitar final d-2 (hoje menos dois dias)
+    max_d_adjusted = max_d - timedelta(days=2)
+    this_year = max_d_adjusted.year
+
     preset = st.radio("Selecione um preset:", ["YTD", "Últimos 12 meses", "Ano passado", "Custom"], index=0)
 
     if preset == "YTD":
-        start, end = date(this_year, 1, 1), max_d
+        start, end = date(this_year, 1, 1), max_d_adjusted
     elif preset == "Últimos 12 meses":
-        end, start = max_d, date(end.year - 1, end.month, 1)
+        # Corrigido para evitar erro de variável usada antes da definição
+        start = date(max_d_adjusted.year - 1, max_d_adjusted.month, 1)
+        end = max_d_adjusted
     elif preset == "Ano passado":
-        start, end = date(this_year - 1, 1, 1), date(this_year - 1, 12, 31)
+        start = date(this_year - 1, 1, 1)
+        end = date(this_year - 1, 12, 31)
     else:
-        start, end = st.date_input("Custom (início/fim)", (min_d, max_d), min_value=min_d, max_value=max_d)
+        start, end = st.date_input("Custom (início/fim)", (min_d, max_d_adjusted), min_value=min_d, max_value=max_d_adjusted)
 
 # aplica filtros
 if forma_sel and "Forma" in df_raw.columns:
@@ -275,4 +280,3 @@ if not dff.empty:
         legend=dict(orientation="h", y=-0.2)
     )
     st.plotly_chart(figf, use_container_width=True)
-
