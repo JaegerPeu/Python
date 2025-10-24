@@ -198,18 +198,10 @@ def main():
         carteira_selecionada = st.selectbox("Selecione o Portfolio", carteira_options)
         st.header(f"Portfolio: {carteira_selecionada}")
 
-        # Controle de rerun ligeiro para evitar loops infinitos
         if ("carteira_selecionada_atual" not in st.session_state or
             st.session_state.carteira_selecionada_atual != carteira_selecionada):
-
             st.session_state.carteira_selecionada_atual = carteira_selecionada
             st.session_state.alocacoes_atualizadas = list(df2[carteira_selecionada].astype(float))
-            if not st.session_state.get("rerun_executado", False):
-                st.session_state.rerun_executado = True
-                st.experimental_rerun()
-
-        if st.session_state.get("rerun_executado", False):
-            st.session_state.rerun_executado = False
 
         df_sb = pd.DataFrame()
         df_sb["Raiz"] = [carteira_selecionada] * len(df2)
@@ -234,7 +226,6 @@ def main():
         with st.expander("Asset Allocation %", expanded=False):
             if st.button("Resetar alocações para valores originais"):
                 st.session_state.alocacoes_atualizadas = list(df2[carteira_selecionada].astype(float))
-                st.experimental_rerun()
 
             cols = st.columns(4)
             nova_alocacao = []
@@ -247,7 +238,7 @@ def main():
                     max_value=100.0,
                     value=valor_atual_pct,
                     step=0.5,
-                    key=f"input_{i}"
+                    key=f"input_{i}_{st.session_state.carteira_selecionada_atual}"
                 )
                 nova_alocacao.append(novo_valor / 100)
 
@@ -370,8 +361,7 @@ def main():
             tabela_fmt = tabela_retorno.applymap(lambda x: f"{x:.2f}%" if pd.notnull(x) else "")
 
             st.subheader("Portfolio Backtest")
-            st.dataframe(tabela_fmt,use_container_width=True)
-
+            st.dataframe(tabela_fmt, use_container_width=True)
 
 if __name__ == "__main__":
     main()
