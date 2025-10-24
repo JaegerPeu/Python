@@ -135,7 +135,7 @@ def aggregate_monthly(df, start, end):
     flows = df.groupby(["Fundo", "AnoMes"], as_index=False)[["Captacao", "Resgate"]].sum()
     m = pl.merge(flows, on=["Fundo", "AnoMes"], how="left")
     m["Captação Líquida"] = m["Captacao"].fillna(0) - m["Resgate"].fillna(0)
-    m["Data"] = m["AnoMes"].dt.to_timestamp("M")
+    m["Data"] = m["AnoMes"].dt.to_timestamp('M') - pd.offsets.MonthBegin(1)
     m["ΔPL"] = m.groupby("Fundo")["Patrimonio"].diff()
     m["Efeito Mercado"] = m["ΔPL"] - m["Captação Líquida"]
     return m[m["Patrimonio"] > 0]
@@ -280,3 +280,4 @@ if not dff.empty:
         legend=dict(orientation="h", y=-0.2)
     )
     st.plotly_chart(figf, use_container_width=True)
+
