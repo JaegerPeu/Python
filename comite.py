@@ -54,6 +54,7 @@ def fetch_data(payload, tab_name="tab0"):
 def main():
     st.set_page_config(layout="wide")
     st.title("Lâmina Comitê SWM")
+    page_title="Lâmina Comitê SWM",
 
     payload1 = (
         "username=solutionswm&password=Soluti%40ns2023&"
@@ -364,6 +365,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
