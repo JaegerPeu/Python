@@ -180,12 +180,16 @@ def main():
                             labels={'value': 'Retorno acumulado (%)', 'variable': 'Portfolio'}
                         )
                         fig.update_yaxes(ticksuffix="%")
-                        st.plotly_chart(fig, use_container_width=True)
+                        col1, col2= st.columns([5,1])
+                        with col1:
+                            st.plotly_chart(fig, use_container_width=True)
 
                         retorno_acum_formatado = rent_acum.iloc[[-1]].applymap(lambda x: f"{x*100:.2f}%")
                         st.write("Rentabilidade acumulada no período selecionado (final):")
                         retorno_acum_formatado = retorno_acum_formatado.T
-                        st.dataframe(retorno_acum_formatado, use_container_width=False)
+
+                        with col2:
+                            st.dataframe(retorno_acum_formatado, use_container_width=False)
 
                     else:
                         st.write("Nenhum dado disponível para o período selecionado.")
@@ -366,6 +370,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
