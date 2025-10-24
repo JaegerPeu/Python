@@ -8,7 +8,6 @@ import calendar
 API_URL = "https://api.comdinheiro.com.br/v1/ep1/import-data"
 HEADERS = {'Content-Type': 'application/x-www-form-urlencoded'}
 
-# Classificação de ativos
 GRANDES_CLASSES = {
     "Equities": ["Equities US", "Equities Global", "Equities EM"],
     "Fixed Income": ["Money Markets", "Investment Grade (3-10)", "High Yield", "Emerging Markets", "Investment Grade (1-3)"],
@@ -56,55 +55,56 @@ def main():
     st.set_page_config(layout="wide")
     st.title("Lâmina Comitê SWM")
 
-    # Payloads API
-    payload1 = ("username=solutionswm&password=Soluti%40ns2023&"
-                "URL=ComparaFundos001.php%3F%26datas%3D31%2F12%2F9999"
-                "%26cnpjs%3DEXPLODE%28GrowthandIncome_I%29%2BIncome_I%2BIncome_II"
-                "%2BIncome_III%2BGrowthandIncome_I%2BGrowthandIncome_II"
-                "%2BGrowthandIncome_III%2BGrowth_II%2BGrowth_III%26indicadores%3Dexplode%28Relatorio_Comite_Offshore%29"
-                "%26num_casas%3D2%26pc%3Dnome_fundo%26flag_transpor%3D0%26enviar_email%3D0"
-                "%26mostrar_da%3D0%26op01%3Dtabela%26oculta_cabecalho_sup%3D0"
-                "%26relat_alias_automatico%3Dcmd_alias_01&format=json3")
+    payload1 = (
+        "username=solutionswm&password=Soluti%40ns2023&"
+        "URL=ComparaFundos001.php%3F%26datas%3D31%2F12%2F9999%26cnpjs%3DEXPLODE%28GrowthandIncome_I%29"
+        "%2BIncome_I%2BIncome_II%2BIncome_III%2BGrowthandIncome_I%2BGrowthandIncome_II"
+        "%2BGrowthandIncome_III%2BGrowth_II%2BGrowth_III%26indicadores%3Dexplode%28Relatorio_Comite_Offshore%29"
+        "%26num_casas%3D2%26pc%3Dnome_fundo%26flag_transpor%3D0%26enviar_email%3D0"
+        "%26mostrar_da%3D0%26op01%3Dtabela%26oculta_cabecalho_sup%3D0"
+        "%26relat_alias_automatico%3Dcmd_alias_01&format=json3"
+    )
 
-    payload2 = ("username=solutionswm&password=Soluti%40ns2023&"
-                "URL=ComparaFundos001.php%3F%26datas%3D31%2F12%2F9999"
-                "%26cnpjs%3DEXPLODE%28GrowthandIncome_I%29"
-                "%26indicadores%3Dexplode%28composicao_portfolio_comite%29"
-                "%26num_casas%3D2%26pc%3Dnome_fundo%26flag_transpor%3D0"
-                "%26enviar_email%3D0%26mostrar_da%3D0%26op01%3Dtabela"
-                "%26oculta_cabecalho_sup%3D0%26relat_alias_automatico%3Dcmd_alias_01&format=json3")
+    payload2 = (
+        "username=solutionswm&password=Soluti%40ns2023&"
+        "URL=ComparaFundos001.php%3F%26datas%3D31%2F12%2F9999%26cnpjs%3DEXPLODE%28GrowthandIncome_I%29"
+        "%26indicadores%3Dexplode%28composicao_portfolio_comite%29"
+        "%26num_casas%3D2%26pc%3Dnome_fundo%26flag_transpor%3D0"
+        "%26enviar_email%3D0%26mostrar_da%3D0%26op01%3Dtabela"
+        "%26oculta_cabecalho_sup%3D0%26relat_alias_automatico%3Dcmd_alias_01&format=json3"
+    )
 
-    payload3 = ("username=solutionswm&password=Soluti%40ns2023&"
-                "URL=HistoricoCotacao002.php%3F"
-                "%26x%3DEXPLODE%28GrowthandIncome_I%29%2BIncome_I%2BIncome_II"
-                "%2BIncome_III%2BGrowthandIncome_I%2BGrowthandIncome_II"
-                "%2BGrowthandIncome_III%2BGrowth_II%2BGrowth_III%26data_ini%3D01012023"
-                "%26data_fim%3D21102025%26pagina%3D1%26d%3DMOEDA_ORIGINAL"
-                "%26g%3D0%26m%3D1%26info_desejada%3Dretorno%26retorno%3Ddiscreto"
-                "%26tipo_data%3Ddu_br%26tipo_ajuste%3Dtodosajustes"
-                "%26num_casas%3D2%26enviar_email%3D0%26ordem_legenda%3D1"
-                "%26cabecalho_excel%3Dmodo1%26classes_ativos%3Dfklk448oj5v5r"
-                "%26ordem_data%3D0%26rent_acum%3Dnada%26minY%3D%26maxY%3D"
-                "%26deltaY%3D%26preco_nd_ant%3D0%26base_num_indice%3D100"
-                "%26flag_num_indice%3D0%26eixo_x%3DData%26startX%3D0"
-                "%26max_list_size%3D20%26line_width%3D2%26titulo_grafico%3D"
-                "%26legenda_eixoy%3D%26tipo_grafico%3Dline%26script%3D%26tooltip%3Dunica&format=json3")
+    payload3 = (
+        "username=solutionswm&password=Soluti%40ns2023&"
+        "URL=HistoricoCotacao002.php%3F"
+        "%26x%3DEXPLODE%28GrowthandIncome_I%29%2BIncome_I%2BIncome_II%2BIncome_III"
+        "%2BGrowthandIncome_I%2BGrowthandIncome_II%2BGrowthandIncome_III"
+        "%2BGrowth_II%2BGrowth_III%26data_ini%3D01012023%26data_fim%3D21102025"
+        "%26pagina%3D1%26d%3DMOEDA_ORIGINAL%26g%3D0%26m%3D1%26info_desejada%3Dretorno"
+        "%26retorno%3Ddiscreto%26tipo_data%3Ddu_br%26tipo_ajuste%3Dtodosajustes"
+        "%26num_casas%3D2%26enviar_email%3D0%26ordem_legenda%3D1"
+        "%26cabecalho_excel%3Dmodo1%26classes_ativos%3Dfklk448oj5v5r"
+        "%26ordem_data%3D0%26rent_acum%3Dnada%26minY%3D%26maxY%3D%26deltaY%3D"
+        "%26preco_nd_ant%3D0%26base_num_indice%3D100%26flag_num_indice%3D0"
+        "%26eixo_x%3DData%26startX%3D0%26max_list_size%3D20%26line_width%3D2"
+        "%26titulo_grafico%3D%26legenda_eixoy%3D%26tipo_grafico%3Dline"
+        "%26script%3D%26tooltip%3Dunica&format=json3"
+    )
 
-    payload4 = ("username=solutionswm&password=Soluti%40ns2023&"
-                "URL=HistoricoCotacao002.php%3F"
-                "%26x%3DEXPLODE%28GrowthandIncome_I%29%2BIncome_I%2BIncome_II%2BIncome_III"
-                "%2BGrowthandIncome_I%2BGrowthandIncome_II%2BGrowthandIncome_III"
-                "%2BGrowth_II%2BGrowth_III%26data_ini%3D01012023"
-                "%26data_fim%3D31129999%26pagina%3D1%26d%3DMOEDA_ORIGINAL"
-                "%26g%3D1%26m%3D0%26info_desejada%3Dnumero_indice"
-                "%26retorno%3Ddiscreto%26tipo_data%3Ddu_br%26tipo_ajuste%3Dtodosajustes"
-                "%26num_casas%3D2%26enviar_email%3D0%26ordem_legenda%3D1"
-                "%26cabecalho_excel%3Dmodo1%26classes_ativos%3Dfklk448oj5v5r"
-                "%26ordem_data%3D0%26rent_acum%3Dnada%26minY%3D%26maxY%3D"
-                "%26deltaY%3D%26preco_nd_ant%3D0%26base_num_indice%3D100"
-                "%26flag_num_indice%3D0%26eixo_x%3DData%26startX%3D0"
-                "%26max_list_size%3D20%26line_width%3D2%26titulo_grafico%3D"
-                "%26legenda_eixoy%3D%26tipo_grafico%3Dline%26script%3D%26tooltip%3Dunica&format=json3")
+    payload4 = (
+        "username=solutionswm&password=Soluti%40ns2023&"
+        "URL=HistoricoCotacao002.php%3F"
+        "%26x%3DEXPLODE%28GrowthandIncome_I%29%2BIncome_I%2BIncome_II%2BIncome_III"
+        "%2BGrowthandIncome_I%2BGrowthandIncome_II%2BGrowthandIncome_III"
+        "%2BGrowth_II%2BGrowth_III%26data_ini%3D01012023%26data_fim%3D31129999"
+        "%26pagina%3D1%26d%3DMOEDA_ORIGINAL%26g%3D1%26m%3D0%26info_desejada%3Dnumero_indice"
+        "%26retorno%3Ddiscreto%26tipo_data%3Ddu_br%26tipo_ajuste%3Dtodosajustes"
+        "%26num_casas%3D2%26enviar_email%3D0%26ordem_legenda%3D1%26cabecalho_excel%3Dmodo1"
+        "%26classes_ativos%3Dfklk448oj5v5r%26ordem_data%3D0%26rent_acum%3Dnada%26minY%3D%26maxY%3D"
+        "%26deltaY%3D%26preco_nd_ant%3D0%26base_num_indice%3D100%26flag_num_indice%3D0"
+        "%26eixo_x%3DData%26startX%3D0%26max_list_size%3D20%26line_width%3D2"
+        "%26titulo_grafico%3D%26legenda_eixoy%3D%26tipo_grafico%3Dline%26script%3D%26tooltip%3Dunica&format=json3"
+    )
 
     tab_consultas, tab_laminas = st.tabs(["Consultas", "Lâminas"])
 
@@ -123,11 +123,12 @@ def main():
 
         with st.expander("Consulta 2: Composição Portfólio", expanded=False):
             st.dataframe(df2)
+
             portfolios = df2.columns[1:]
             n_cols = 3
             for i in range(0, len(portfolios), n_cols):
                 cols = st.columns(n_cols)
-                for j, portfolio in enumerate(portfolios[i:i+n_cols]):
+                for j, portfolio in enumerate(portfolios[i:i + n_cols]):
                     pie_data = df2[[df2.columns[0], portfolio]].copy()
                     pie_data = pie_data[pie_data[portfolio] > 0]
                     fig = px.pie(pie_data, names=df2.columns[0], values=portfolio, title=portfolio)
@@ -191,17 +192,24 @@ def main():
             else:
                 st.write("Coluna 'Data' não encontrada para plotar série temporal.")
 
+    # Aba Laminas
     with tab_laminas:
         carteira_options = list(df2.columns[1:])
         carteira_selecionada = st.selectbox("Selecione o Portfolio", carteira_options)
         st.header(f"Portfolio: {carteira_selecionada}")
 
-        # Sincroniza alocações no estado da sessão
-        if ("carteira_selecionada_atual" not in st.session_state) or (st.session_state.carteira_selecionada_atual != carteira_selecionada):
-            st.session_state.alocacoes_atualizadas = list(df2[carteira_selecionada].astype(float))
-            st.session_state.carteira_selecionada_atual = carteira_selecionada
-            st.experimental_rerun()  # força recarregamento e atualização imediata do app
+        # Controle de rerun ligeiro para evitar loops infinitos
+        if ("carteira_selecionada_atual" not in st.session_state or
+            st.session_state.carteira_selecionada_atual != carteira_selecionada):
 
+            st.session_state.carteira_selecionada_atual = carteira_selecionada
+            st.session_state.alocacoes_atualizadas = list(df2[carteira_selecionada].astype(float))
+            if not st.session_state.get("rerun_executado", False):
+                st.session_state.rerun_executado = True
+                st.experimental_rerun()
+
+        if st.session_state.get("rerun_executado", False):
+            st.session_state.rerun_executado = False
 
         df_sb = pd.DataFrame()
         df_sb["Raiz"] = [carteira_selecionada] * len(df2)
@@ -247,7 +255,7 @@ def main():
 
             soma_pct = sum(nova_alocacao) * 100
             st.write(f"**Soma das alocações:** {soma_pct:.2f}%")
-            
+
             df_sb["Proporcao"] = nova_alocacao
             soma = sum(nova_alocacao)
             if abs(soma - 1) > 0.001:
@@ -332,7 +340,6 @@ def main():
                     use_container_width=True
                 )
 
-        # Backtest no tab_laminas (só aqui)
         with st.expander("Portfolio Backtest (Rentabilidade Acumulada)", expanded=False):
             df3['Data'] = pd.to_datetime(df3['Data'], dayfirst=True, errors='coerce')
 
@@ -365,6 +372,6 @@ def main():
             st.subheader("Portfolio Backtest")
             st.dataframe(tabela_fmt,use_container_width=True)
 
+
 if __name__ == "__main__":
     main()
-
