@@ -223,9 +223,7 @@ def main():
         }
     
         with st.expander("Asset Allocation %", expanded=False):
-            if st.button("Resetar alocações para valores originais"):
-                st.session_state.alocacoes_atualizadas = list(df2[carteira_selecionada].astype(float))
-    
+
             cols = st.columns(4)
             nova_alocacao = []
             for i, (idx, row) in enumerate(df_sb.iterrows()):
@@ -366,4 +364,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
