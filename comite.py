@@ -197,10 +197,11 @@ def main():
         st.header(f"Portfolio: {carteira_selecionada}")
 
         # Sincroniza alocações no estado da sessão
-        if ("carteira_selecionada_atual" not in st.session_state or 
-            st.session_state.carteira_selecionada_atual != carteira_selecionada):
+        if ("carteira_selecionada_atual" not in st.session_state) or (st.session_state.carteira_selecionada_atual != carteira_selecionada):
             st.session_state.alocacoes_atualizadas = list(df2[carteira_selecionada].astype(float))
             st.session_state.carteira_selecionada_atual = carteira_selecionada
+            st.experimental_rerun()  # força recarregamento e atualização imediata do app
+
 
         df_sb = pd.DataFrame()
         df_sb["Raiz"] = [carteira_selecionada] * len(df2)
@@ -366,3 +367,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
