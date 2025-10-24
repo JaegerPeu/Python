@@ -332,43 +332,44 @@ def main():
 
 
     
-    with st.expander("Portfolio Backtest (Rentabilidade Acumulada)", expanded=False):
-        # Certifica que as datas estão no formato datetime
-        df3['Data'] = pd.to_datetime(df3['Data'], dayfirst=True, errors='coerce')
-    
-        ativos = [c for c in df3.columns if c != 'Data']
-        prop_dict = dict(zip(df_sb["Ativo"], df_sb["Proporcao"]))
-        proporcoes = [prop_dict.get(ativo, 0) for ativo in ativos]
-    
-        retornos = df3[ativos].astype(float).fillna(0).to_numpy() / 100.0
-        proporcoes_np = np.array(proporcoes).reshape(1, -1)
-    
-        retornos_ptf = (retornos * proporcoes_np).sum(axis=1)
-    
-        df_backtest = pd.DataFrame({
-            "Data": df3['Data'],
-            "Retorno (%)": retornos_ptf * 100
-        })
-        df_backtest["Ano"] = df_backtest["Data"].dt.year
-        df_backtest["Mes"] = df_backtest["Data"].dt.month
-    
-        # Pivot por número do mês
-        tabela_retorno = df_backtest.pivot(index="Ano", columns="Mes", values="Retorno (%)")
-    
-        # Renomeia as colunas de número para nome abreviado
-        tabela_retorno.columns = [calendar.month_abbr[m] for m in tabela_retorno.columns]
-        MES_ORDER = [calendar.month_abbr[m] for m in range(1, 13)]
-        tabela_retorno = tabela_retorno.reindex(columns=MES_ORDER)
-    
-        # Calcula acumulado anual (FY) geometricamente
-        fy = df_backtest.groupby('Ano')["Retorno (%)"].apply(lambda x: ((1 + x/100).prod() - 1) * 100)
-        tabela_retorno['FY'] = fy
-    
-        tabela_fmt = tabela_retorno.applymap(lambda x: f"{x:.2f}%" if pd.notnull(x) else "")
-    
-        st.subheader("Portfolio Backtest")
-        st.dataframe(tabela_fmt,use_container_width=True)
-            
+        with st.expander("Portfolio Backtest (Rentabilidade Acumulada)", expanded=False):
+            # Certifica que as datas estão no formato datetime
+            df3['Data'] = pd.to_datetime(df3['Data'], dayfirst=True, errors='coerce')
+        
+            ativos = [c for c in df3.columns if c != 'Data']
+            prop_dict = dict(zip(df_sb["Ativo"], df_sb["Proporcao"]))
+            proporcoes = [prop_dict.get(ativo, 0) for ativo in ativos]
+        
+            retornos = df3[ativos].astype(float).fillna(0).to_numpy() / 100.0
+            proporcoes_np = np.array(proporcoes).reshape(1, -1)
+        
+            retornos_ptf = (retornos * proporcoes_np).sum(axis=1)
+        
+            df_backtest = pd.DataFrame({
+                "Data": df3['Data'],
+                "Retorno (%)": retornos_ptf * 100
+            })
+            df_backtest["Ano"] = df_backtest["Data"].dt.year
+            df_backtest["Mes"] = df_backtest["Data"].dt.month
+        
+            # Pivot por número do mês
+            tabela_retorno = df_backtest.pivot(index="Ano", columns="Mes", values="Retorno (%)")
+        
+            # Renomeia as colunas de número para nome abreviado
+            tabela_retorno.columns = [calendar.month_abbr[m] for m in tabela_retorno.columns]
+            MES_ORDER = [calendar.month_abbr[m] for m in range(1, 13)]
+            tabela_retorno = tabela_retorno.reindex(columns=MES_ORDER)
+        
+            # Calcula acumulado anual (FY) geometricamente
+            fy = df_backtest.groupby('Ano')["Retorno (%)"].apply(lambda x: ((1 + x/100).prod() - 1) * 100)
+            tabela_retorno['FY'] = fy
+        
+            tabela_fmt = tabela_retorno.applymap(lambda x: f"{x:.2f}%" if pd.notnull(x) else "")
+        
+            st.subheader("Portfolio Backtest")
+            st.dataframe(tabela_fmt,use_container_width=True)
+                
 
 if __name__ == "__main__":
     main()
+
