@@ -121,10 +121,10 @@ def main():
         if df4.shape[1] > 1:
             df4.iloc[:, 1:] = df4.iloc[:, 1:].apply(pd.to_numeric, errors='coerce') * 100
 
-        with st.expander("Consulta 1: Retorno Períodos", expanded=True):
+        with st.expander("Consulta 1: Retorno Períodos", expanded=False):
             st.dataframe(df1)
 
-        with st.expander("Consulta 2: Composição Portfólio", expanded=True):
+        with st.expander("Consulta 2: Composição Portfólio", expanded=False):
             st.dataframe(df2)
 
             portfolios = df2.columns[1:]
@@ -138,7 +138,7 @@ def main():
                     with cols[j]:
                         st.plotly_chart(fig, use_container_width=True)
 
-        with st.expander("Consulta 3: Retorno Mensal", expanded=True):
+        with st.expander("Consulta 3: Retorno Mensal", expanded=False):
             st.dataframe(df3)
             if 'Data' in df3.columns:
                 df3['Data'] = pd.to_datetime(df3['Data'], dayfirst=True, errors='coerce')
@@ -155,7 +155,7 @@ def main():
             else:
                 st.write("Coluna 'Data' não encontrada para plotar série temporal.")
 
-        with st.expander("Consulta 4: Rentabilidade Acumulada", expanded=True):
+        with st.expander("Consulta 4: Rentabilidade Acumulada", expanded=False):
             if 'Data' in df4.columns:
                 df4['Data'] = pd.to_datetime(df4['Data'], dayfirst=True, errors='coerce')
                 data_min = df4['Data'].min()
@@ -532,6 +532,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
