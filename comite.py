@@ -4,7 +4,7 @@ import requests
 import pandas as pd
 import plotly.express as px
 import calendar
-from st_aggrid import AgGrid, GridOptionsBuilder
+#from st_aggrid import AgGrid, GridOptionsBuilder
 
 
 API_URL = "https://api.comdinheiro.com.br/v1/ep1/import-data"
@@ -532,6 +532,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
