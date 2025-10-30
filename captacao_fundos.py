@@ -176,7 +176,18 @@ with st.sidebar:
         start = date(this_year - 1, 1, 1)
         end = date(this_year - 1, 12, 31)
     else:
-        start, end = st.date_input("Custom (início/fim)", (min_d, max_d_adjusted), min_value=min_d, max_value=max_d_adjusted)
+        start = st.date_input(
+            "Data Início",
+            min_value=min_d,
+            max_value=max_d_adjusted,
+            value=min_d
+        )
+        end = st.date_input(
+            "Data Fim",
+            min_value=start,
+            max_value=max_d_adjusted,
+            value=max_d_adjusted
+        )
 
 # aplica filtros
 if forma_sel and "Forma" in df_raw.columns:
@@ -191,24 +202,59 @@ if fundo_sel:
 start_ts, end_ts = pd.Timestamp(start), pd.Timestamp(end)
 df_monthly = aggregate_monthly(df_raw, start_ts, end_ts)
 
+#st.markdown(f"### 📅 Período: **{start.strftime('%d/%m/%Y')}** até **{end.strftime('%d/%m/%Y')}**")
+#st.info(f"📅 Período analisado: {start.strftime('%d/%m/%Y')} até {end.strftime('%d/%m/%Y')}")
+st.markdown(
+    f"<div style='background-color:#d9edf7; border-radius:5px; padding:10px; font-size:20px;'>"
+    f"📅 Período analisado: <strong>{start.strftime('%d/%m/%Y')}</strong> até <strong>{end.strftime('%d/%m/%Y')}</strong>"
+    f"</div>",
+    unsafe_allow_html=True
+)
+
 # ====================================================
-# 4. MÉTRICAS GERAIS
+# 4. MÉTRICAS GERAIS (ajustado para PL inicial com dados diários)
 # ====================================================
 if df_monthly.empty:
     st.warning("Sem dados no período selecionado.")
     st.stop()
 
+# Agrupa por data somando Patrimonio e Captação Líquida - para o gráfico e métricas finais
 agg = df_monthly.groupby("Data", as_index=False)[["Patrimonio", "Captação Líquida"]].sum()
-pl_ini, pl_fim = agg.iloc[0]["Patrimonio"], agg.iloc[-1]["Patrimonio"]
-var_pct = (pl_fim / pl_ini - 1) * 100 if pl_ini else np.nan
+
+# Calcular PL inicial somando os patrimônios diários de cada fundo na data start_ts
+pl_ini_valores = []
+fundos_unicos = df_monthly["Fundo"].unique()
+
+for fundo in fundos_unicos:
+    df_fundo = df_raw[(df_raw["Fundo"] == fundo) & (df_raw["Data"] <= start_ts)].sort_values("Data")
+    if df_fundo.empty:
+        pl_ini_valores.append(np.nan)
+    else:
+        pl_ini_valores.append(df_fundo.iloc[-1]["Patrimonio"])
+
+# Soma ignorando NaNs
+pl_ini = np.nansum(pl_ini_valores)
+
+# PL final do último mês consolidado
+pl_fim = agg["Patrimonio"].iloc[-1] if not agg.empty else np.nan
+
+# Variação percentual do patrimônio no período
+var_pct = (pl_fim / pl_ini - 1) * 100 if pl_ini and pl_ini != 0 else np.nan
+
+# Soma da captação líquida no período
 capt_liq_tot = agg["Captação Líquida"].sum()
 
-k1, k2, k3, k4 = st.columns(4)
-k1.metric("💰 PL Total", fmt_brl(pl_fim), fmt_pct(var_pct))
-k2.metric("📈 Captação Líquida (acum.)", fmt_brl(capt_liq_tot))
-k3.metric("🧾 Nº de Fundos", df_monthly["Fundo"].nunique())
-k4.metric("🗓️ Meses", agg["Data"].nunique())
+# Exibe as métricas na interface
+k1, k2, k3, k4, k5 = st.columns(5)
+k1.metric("PL Início", fmt_brl(pl_ini))
+k2.metric("💰 PL Final", fmt_brl(pl_fim), fmt_pct(var_pct))
+k3.metric("📈 Captação Líquida (acum.)", fmt_brl(capt_liq_tot))
+k4.metric("🧾 Nº de Fundos", df_monthly["Fundo"].nunique())
+k5.metric("🗓️ Meses", agg["Data"].nunique())
 st.divider()
+
+
+
 
 # ====================================================
 # 5. EVOLUÇÃO CONSOLIDADA
@@ -280,4 +326,3 @@ if not dff.empty:
         legend=dict(orientation="h", y=-0.2)
     )
     st.plotly_chart(figf, use_container_width=True)
-
