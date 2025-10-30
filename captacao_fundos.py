@@ -202,14 +202,14 @@ if fundo_sel:
 start_ts, end_ts = pd.Timestamp(start), pd.Timestamp(end)
 df_monthly = aggregate_monthly(df_raw, start_ts, end_ts)
 
-#st.markdown(f"### 📅 Período: **{start.strftime('%d/%m/%Y')}** até **{end.strftime('%d/%m/%Y')}**")
+st.markdown(f"### 📅 Período: **{start.strftime('%d/%m/%Y')}** até **{end.strftime('%d/%m/%Y')}**")
 #st.info(f"📅 Período analisado: {start.strftime('%d/%m/%Y')} até {end.strftime('%d/%m/%Y')}")
-st.markdown(
-    f"<div style='background-color:#d9edf7; border-radius:5px; padding:10px; font-size:20px;'>"
-    f"📅 Período analisado: <strong>{start.strftime('%d/%m/%Y')}</strong> até <strong>{end.strftime('%d/%m/%Y')}</strong>"
-    f"</div>",
-    unsafe_allow_html=True
-)
+#st.markdown(
+#    f"<div style='background-color:#d9edf7; border-radius:5px; padding:10px; font-size:20px;'>"
+#    f"📅 Período analisado: <strong>{start.strftime('%d/%m/%Y')}</strong> até <strong>{end.strftime('%d/%m/%Y')}</strong>"
+#    f"</div>",
+#    unsafe_allow_html=True
+#)
 
 # ====================================================
 # 4. MÉTRICAS GERAIS (ajustado para PL inicial com dados diários)
@@ -326,3 +326,4 @@ if not dff.empty:
         legend=dict(orientation="h", y=-0.2)
     )
     st.plotly_chart(figf, use_container_width=True)
+
