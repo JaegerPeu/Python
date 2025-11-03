@@ -61,7 +61,7 @@ def primeiros_uteis_do_periodo(df_dates, periodo='M', dia_util=1):
 # Exemplo local: 'C:/Users/.../pl_diario_todos_clientes.xlsx'
 # Para publicar no GitHub e rodar Streamlit via GitHub Codespaces ou outros, usar caminho relativo:
 # arquivo na raiz do repo: caminho_arquivo = 'pl_diario_todos_clientes.xlsx'
-caminho_arquivo = r"C:\Users\PedroAugustoBernarde\pl_diario_todos_clientes.xlsx" 
+caminho_arquivo = "pl_diario_todos_clientes.xlsx" 
 df = pd.read_excel(caminho_arquivo, sheet_name='Ativos')
 clientes = df['customerCode'].astype(str).unique().tolist()
 
