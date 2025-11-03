@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 
 # Configuração do login
-senha_correta = "taxaswitx"
+senha_correta = "taxaswitz"
 usuario_correto = "witz"
 
 # Entrada do usuário
