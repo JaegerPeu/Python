@@ -1,6 +1,23 @@
 import streamlit as st
 import pandas as pd
 
+# Configuração do login
+senha_correta = "taxaswitx"
+usuario_correto = "witz"
+
+# Entrada do usuário
+usuario_input = st.text_input("Usuário")
+senha_input = st.text_input("Senha", type="password")
+
+# Validação
+if usuario_input == usuario_correto and senha_input == senha_correta:
+    st.success("Acesso concedido!")
+    # Insira aqui o seu código do app
+    # Puxe o seu código completo que deseja proteger
+else:
+    st.error("Usuário ou senha incorretos")
+
+
 
 
 def primeiros_uteis_do_periodo(df_dates, periodo='M', dia_util=1):
