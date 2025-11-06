@@ -5,6 +5,7 @@ import streamlit as st
 import plotly.express as px
 import plotly.graph_objects as go
 from datetime import date, timedelta
+import calendar
 
 # ====================================================
 # CONFIG INICIAL
@@ -164,17 +165,34 @@ with st.sidebar:
     max_d_adjusted = max_d - timedelta(days=2)
     this_year = max_d_adjusted.year
 
-    preset = st.radio("Selecione um preset:", ["YTD", "Últimos 12 meses", "Ano passado", "Custom"], index=0)
+    preset = st.radio("Selecione um preset:", ["YTD", "Últimos 12 meses", "Ano passado", "Mês Atual", "Mês Passado", "Custom"], index=0)
 
     if preset == "YTD":
         start, end = date(this_year, 1, 1), max_d_adjusted
     elif preset == "Últimos 12 meses":
-        # Corrigido para evitar erro de variável usada antes da definição
         start = date(max_d_adjusted.year - 1, max_d_adjusted.month, 1)
         end = max_d_adjusted
     elif preset == "Ano passado":
         start = date(this_year - 1, 1, 1)
         end = date(this_year - 1, 12, 31)
+    elif preset == "Mês Atual":
+        start = date(max_d_adjusted.year, max_d_adjusted.month, 1)
+        # último dia do mês atual (limitado a max_d_adjusted)
+        last_day = calendar.monthrange(max_d_adjusted.year, max_d_adjusted.month)[1]
+        end = date(max_d_adjusted.year, max_d_adjusted.month, last_day)
+        if end > max_d_adjusted:
+            end = max_d_adjusted
+    elif preset == "Mês Passado":
+        # calcula mês e ano anterior
+        if max_d_adjusted.month == 1:
+            mes_passado = 12
+            ano_passado = max_d_adjusted.year - 1
+        else:
+            mes_passado = max_d_adjusted.month - 1
+            ano_passado = max_d_adjusted.year
+        start = date(ano_passado, mes_passado, 1)
+        last_day = calendar.monthrange(ano_passado, mes_passado)[1]
+        end = date(ano_passado, mes_passado, last_day)
     else:
         start = st.date_input(
             "Data Início",
@@ -202,14 +220,14 @@ if fundo_sel:
 start_ts, end_ts = pd.Timestamp(start), pd.Timestamp(end)
 df_monthly = aggregate_monthly(df_raw, start_ts, end_ts)
 
-st.markdown(f"### 📅 Período: **{start.strftime('%d/%m/%Y')}** até **{end.strftime('%d/%m/%Y')}**")
+#st.markdown(f"### 📅 Período: **{start.strftime('%d/%m/%Y')}** até **{end.strftime('%d/%m/%Y')}**")
 #st.info(f"📅 Período analisado: {start.strftime('%d/%m/%Y')} até {end.strftime('%d/%m/%Y')}")
-#st.markdown(
-#    f"<div style='background-color:#d9edf7; border-radius:5px; padding:10px; font-size:20px;'>"
-#    f"📅 Período analisado: <strong>{start.strftime('%d/%m/%Y')}</strong> até <strong>{end.strftime('%d/%m/%Y')}</strong>"
-#    f"</div>",
-#    unsafe_allow_html=True
-#)
+st.markdown(
+    f"<div style='background-color:#d9edf7; border-radius:5px; padding:10px; font-size:20px;'>"
+    f"📅 Período analisado: <strong>{start.strftime('%d/%m/%Y')}</strong> até <strong>{end.strftime('%d/%m/%Y')}</strong>"
+    f"</div>",
+    unsafe_allow_html=True
+)
 
 # ====================================================
 # 4. MÉTRICAS GERAIS (ajustado para PL inicial com dados diários)
@@ -304,7 +322,7 @@ heat = (
     .fillna(0)
 )
 heat = heat.loc[heat.sum(axis=1).sort_values(ascending=False).index]
-fig_hm = px.imshow(heat, aspect="auto", color_continuous_scale="RdYlGn", title="Captação Líquida por Fundo e Mês")
+fig_hm = px.imshow(heat, aspect="auto", color_continuous_scale="mint", title="Captação Líquida por Fundo e Mês")
 fig_hm.update_layout(template=PLOT_TEMPLATE, margin=dict(l=10, r=10, t=60, b=10))
 st.plotly_chart(fig_hm, use_container_width=True)
 st.divider()
@@ -326,4 +344,3 @@ if not dff.empty:
         legend=dict(orientation="h", y=-0.2)
     )
     st.plotly_chart(figf, use_container_width=True)
-
