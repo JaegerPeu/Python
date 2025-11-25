@@ -83,7 +83,7 @@ def main():
     st.title("Lâmina Comitê SWM")
 
     payload1 = (
-        "username=solutionswm&password=Soluti%40ns2023&URL=ComparaFundos001.php%3F%26datas%3D20%2F10%2F2025"
+        "username=solutionswm&password=Soluti%40ns2023&URL=ComparaFundos001.php%3F%26datas%3D31%2F12%2F9999"
         "%26cnpjs%3DPortfolio_AvinI%2BPortfolio_AvinII%2BPortfolio_AvinIII%2BPortfolio_AvinIV"
         "%2BPortfolio_AvinV%2BPortfolio_AvinVI%2BEXPLODE%28Portfolio_AvinV%29%26indicadores%3Dexplode%28Relatorio_Comite_Offshore%29"
         "%26num_casas%3D2%26pc%3Dnome_fundo%26flag_transpor%3D0%26enviar_email%3D0%26mostrar_da%3D0%26op01%3Dtabela"
@@ -91,7 +91,7 @@ def main():
     )
 
     payload2 = (
-        "username=solutionswm&password=Soluti%40ns2023&URL=ComparaFundos001.php%3F%26datas%3D20%2F10%2F2025"
+        "username=solutionswm&password=Soluti%40ns2023&URL=ComparaFundos001.php%3F%26datas%3D31%2F12%2F9999"
         "%26cnpjs%3DEXPLODE%28Portfolio_AvinV%29%26indicadores%3Dexplode%28composicao_portfolio_comite_on%29"
         "%26num_casas%3D2%26pc%3Dnome_fundo%26flag_transpor%3D0%26enviar_email%3D0"
         "%26mostrar_da%3D0%26op01%3Dtabela%26oculta_cabecalho_sup%3D0"
@@ -101,7 +101,7 @@ def main():
     payload3 = (
         "username=solutionswm&password=Soluti%40ns2023&URL=HistoricoCotacao002.php%3F%26x%3DPortfolio_AvinI"
         "%2BPortfolio_AvinII%2BPortfolio_AvinIII%2BPortfolio_AvinIV%2BPortfolio_AvinV%2BPortfolio_AvinVI"
-        "%2BEXPLODE%28Portfolio_AvinV%29%26data_ini%3D25062025%26data_fim%3D31129999%26pagina%3D1"
+        "%2BEXPLODE%28Portfolio_AvinV%29%26data_ini%3D01012023%26data_fim%3D31129999%26pagina%3D1"
         "%26d%3DMOEDA_ORIGINAL%26g%3D1%26m%3D1%26info_desejada%3Dretorno%26retorno%3Ddiscreto"
         "%26tipo_data%3Ddu_br%26tipo_ajuste%3Dtodosajustes%26num_casas%3D2"
         "%26enviar_email%3D0%26ordem_legenda%3D1%26cabecalho_excel%3Dmodo1"
@@ -116,7 +116,7 @@ def main():
     payload4 = (
         "username=solutionswm&password=Soluti%40ns2023&URL=HistoricoCotacao002.php%3F%26x%3DPortfolio_AvinI"
         "%2BPortfolio_AvinII%2BPortfolio_AvinIII%2BPortfolio_AvinIV%2BPortfolio_AvinV%2BPortfolio_AvinVI"
-        "%2BEXPLODE%28Portfolio_AvinV%29%26data_ini%3D25062025%26data_fim%3D31129999%26pagina%3D1"
+        "%2BEXPLODE%28Portfolio_AvinV%29%26data_ini%3D01012023%26data_fim%3D31129999%26pagina%3D1"
         "%26d%3DMOEDA_ORIGINAL%26g%3D1%26m%3D0%26info_desejada%3Dnumero_indice"
         "%26retorno%3Ddiscreto%26tipo_data%3Ddu_br%26tipo_ajuste%3Dtodosajustes"
         "%26num_casas%3D2%26enviar_email%3D0%26ordem_legenda%3D1%26cabecalho_excel%3Dmodo1"
@@ -483,3 +483,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
