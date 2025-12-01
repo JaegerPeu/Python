@@ -161,8 +161,9 @@ with st.sidebar:
     st.header("🗓️ Período")
 
     min_d, max_d = df_raw["Data"].min().date(), df_raw["Data"].max().date()
-    # Ajuste para limitar final d-2 (hoje menos dois dias)
-    max_d_adjusted = max_d - timedelta(days=2)
+    # Ajuste para limitar final 2 dias úteis atrás
+    max_d_np = np.datetime64(max_d)
+    max_d_adjusted = np.busday_offset(max_d_np, -2, roll='backward').astype('M8[D]').astype(object)
     this_year = max_d_adjusted.year
 
     preset = st.radio("Selecione um preset:", ["YTD", "Últimos 12 meses", "Ano passado", "Mês Atual", "Mês Passado", "Custom"], index=0)
@@ -344,4 +345,5 @@ if not dff.empty:
         legend=dict(orientation="h", y=-0.2)
     )
     st.plotly_chart(figf, use_container_width=True)
+
 
