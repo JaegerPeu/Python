@@ -660,6 +660,7 @@ def main():
                 )
                 st.plotly_chart(fig_bar, use_container_width=True)
 
+            # GRÁFICO DE COTA (PORTFÓLIO x BENCHMARK)
             if not df_cota.empty:
                 fig_cota = px.line(
                     df_cota,
@@ -683,6 +684,18 @@ def main():
                 st.plotly_chart(fig_cota, use_container_width=True)
             else:
                 st.info("Não há dados de retorno no intervalo selecionado.")
+
+            # TABELA DE RETORNO MENSAL
+            st.subheader("Retornos Mensais do Portfolio")
+            df_ret_mensal = gerar_retorno_mensal(df_cota)
+            if not df_ret_mensal.empty:
+                st.dataframe(
+                    df_ret_mensal,
+                    use_container_width=True,
+                    hide_index=True,
+                )
+            else:
+                st.info("Não foi possível calcular retornos mensais para o período selecionado.")
 
 if __name__ == "__main__":
     main()
