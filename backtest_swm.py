@@ -686,16 +686,64 @@ def main():
                 st.info("Não há dados de retorno no intervalo selecionado.")
 
             # TABELA DE RETORNO MENSAL
-            st.subheader("Retornos Mensais do Portfolio")
-            df_ret_mensal = gerar_retorno_mensal(df_cota)
-            if not df_ret_mensal.empty:
-                st.dataframe(
-                    df_ret_mensal,
-                    use_container_width=True,
-                    hide_index=True,
+             # =========================
+            # RETORNOS MENSAIS (CARTEIRA)
+            # =========================
+            st.markdown("---")
+            st.subheader("Retornos Mensais")
+    
+            if not df_cota.empty:
+                df_m = df_cota.copy()
+                df_m["Ano"] = df_m["Data"].dt.year
+                df_m["Mes"] = df_m["Data"].dt.month
+    
+                ret_m_carteira = (
+                    df_m.groupby(["Ano", "Mes"])["Retorno Portfolio"]
+                    .apply(lambda x: (1 + x).prod() - 1)
+                    .reset_index()
                 )
+    
+                anos = ret_m_carteira["Ano"].unique()
+                meses = np.arange(1, 13)
+                idx_completo = (
+                    pd.MultiIndex.from_product([anos, meses], names=["Ano", "Mes"])
+                    .to_frame(index=False)
+                )
+                ret_m_carteira = (
+                    idx_completo
+                    .merge(ret_m_carteira, on=["Ano", "Mes"], how="left")
+                )
+    
+                tabela_cart = ret_m_carteira.pivot(index="Ano", columns="Mes", values="Retorno Portfolio")
+                tabela_cart = tabela_cart.reindex(columns=meses)
+    
+                ret_ano = (1 + tabela_cart.fillna(0)).prod(axis=1) - 1
+                tabela_cart["Ano Acumulado"] = ret_ano
+    
+                mapa_meses = {
+                    1: "Jan", 2: "Fev", 3: "Mar", 4: "Abr",
+                    5: "Mai", 6: "Jun", 7: "Jul", 8: "Ago",
+                    9: "Set", 10: "Out", 11: "Nov", 12: "Dez",
+                }
+                tabela_cart = tabela_cart.rename(columns=mapa_meses)
+    
+                tabela_cart_fmt = tabela_cart.applymap(
+                    lambda x: "" if pd.isna(x) else f"{x*100:.2f}"
+                )
+                tabela_cart_fmt.insert(0, "Ativo", "Carteira")
+    
+                resultado = tabela_cart_fmt.reset_index()
+                cols_ordem = [
+                    "Ano", "Ativo",
+                    "Jan", "Fev", "Mar", "Abr", "Mai", "Jun",
+                    "Jul", "Ago", "Set", "Out", "Nov", "Dez",
+                    "Ano Acumulado",
+                ]
+                resultado = resultado[cols_ordem]
+    
+                st.dataframe(resultado, use_container_width=True, hide_index=True)
             else:
-                st.info("Não foi possível calcular retornos mensais para o período selecionado.")
-
+                st.info("Selecione um período válido para visualizar a tabela mensal.")
+                
 if __name__ == "__main__":
     main()
