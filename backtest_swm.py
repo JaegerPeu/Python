@@ -230,7 +230,7 @@ def gerar_retorno_mensal(df_cota: pd.DataFrame) -> pd.DataFrame:
 
 def main():
     st.set_page_config(page_title="SWM - Backtest", layout="wide")
-    st.title("SWM | Avin - Portfolio")
+    st.title("SWM | Portfolio")
     st.subheader("Uso interno")
 
     # controla se a aba Consultas aparece ou não
