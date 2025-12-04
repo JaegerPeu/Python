@@ -35,7 +35,7 @@ CLASSIFICACAO_ATIVOS = {
 CARACTERISTICAS_PORT = {
     "Portfolio_AvinI": {
         "Perfil (Suitability)": "Conservador",
-        "Objetivo da carteira": "Preservação patrimonial",
+        "Objetivo da carteira": "Preservação patrimonial e liquidez",
         "Tipo de investidor": "Investidor Geral",
         "Retorno 06 meses": "-",
         "Retorno 12 meses": "-",
@@ -47,7 +47,7 @@ CARACTERISTICAS_PORT = {
     },
     "Portfolio_AvinII": {
         "Perfil (Suitability)": "Conservador",
-        "Objetivo da carteira": "Preservação patrimonial",
+        "Objetivo da carteira": "reservação patrimonial com rendimento",
         "Tipo de investidor": "Investidor Geral",
         "Retorno 06 meses": "-",
         "Retorno 12 meses": "-",
@@ -59,7 +59,7 @@ CARACTERISTICAS_PORT = {
     },
     "Portfolio_AvinIII": {
         "Perfil (Suitability)": "Balanceado",
-        "Objetivo da carteira": "Preservação patrimonial",
+        "Objetivo da carteira": "Crescimento conservador com preservação patrimonial",
         "Tipo de investidor": "Investidor Geral",
         "Retorno 06 meses": "-",
         "Retorno 12 meses": "-",
@@ -71,7 +71,7 @@ CARACTERISTICAS_PORT = {
     },
     "Portfolio_AvinIV": {
         "Perfil (Suitability)": "Balanceado",
-        "Objetivo da carteira": "Preservação patrimonial",
+        "Objetivo da carteira": "Crescimento equilibrado com controle de risco",
         "Tipo de investidor": "Investidor Geral",
         "Retorno 06 meses": "-",
         "Retorno 12 meses": "-",
@@ -82,8 +82,8 @@ CARACTERISTICAS_PORT = {
         "Menor rent. mensal": "-",
     },
     "Portfolio_AvinV": {
-        "Perfil (Suitability)": "Moderado",
-        "Objetivo da carteira": "Crescimento com preservação patrimonial",
+        "Perfil (Suitability)": "Moderado/Agressivo",
+        "Objetivo da carteira": "Crescimento de patrimônio no longo prazo",
         "Tipo de investidor": "Investidor Geral",
         "Retorno 06 meses": "-",
         "Retorno 12 meses": "-",
@@ -95,7 +95,7 @@ CARACTERISTICAS_PORT = {
     },
     "Portfolio_AvinVI": {
         "Perfil (Suitability)": "Agressivo",
-        "Objetivo da carteira": "Preservação patrimonial",
+        "Objetivo da carteira": "Crescimento agressivo com alta tolerância à volatilidade",
         "Tipo de investidor": "Investidor Geral",
         "Retorno 06 meses": "-",
         "Retorno 12 meses": "-",
