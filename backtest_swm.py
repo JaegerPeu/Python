@@ -232,8 +232,10 @@ def gerar_retorno_mensal(df_cota: pd.DataFrame) -> pd.DataFrame:
 
 def main():
     st.set_page_config(page_title="SWM - Backtest", layout="wide")
-    st.title("SWM - Base de Dados")
-
+    st.title("SWM - Portfolio")
+    st.subheader("Uso interno")
+    
+    
     # ✅ CSS ATUALIZADO para metrics com bordas quadradas
     st.markdown(
         """
