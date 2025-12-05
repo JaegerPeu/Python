@@ -3,6 +3,7 @@ import requests
 import pandas as pd
 import numpy as np
 import plotly.express as px
+from datetime import date
 
 API_URL = "https://api.comdinheiro.com.br/v1/ep1/import-data"
 HEADERS = {"Content-Type": "application/x-www-form-urlencoded"}
@@ -516,19 +517,25 @@ def main():
 
             st.subheader("Período para cálculo da cota")
 
-            col_d1, col_d2 = st.columns(2)
+            # depois de calcular min_data_port e max_data_port
+            hoje = date.today()
+            max_data_picker = min(max_data_port.date(), hoje)
+            
+            min_data_picker = df_ret["Data"].min().date()
+            
             data_ini = col_d1.date_input(
                 "Data inicial",
                 value=min_data_port.date(),
-                min_value=df_ret["Data"].min().date(),
-                max_value=df_ret["Data"].max().date(),
+                min_value=min_data_picker,
+                max_value=max_data_picker,
                 key=f"comp_data_ini_{portfolio_sel}",
             )
+            
             data_fim = col_d2.date_input(
                 "Data final",
-                value=max_data_port.date(),
-                min_value=df_ret["Data"].min().date(),
-                max_value=df_ret["Data"].max().date(),
+                value=max_data_picker,      # usa hoje ou o último dado disponível, o que for menor
+                min_value=min_data_picker,
+                max_value=max_data_picker,
                 key=f"comp_data_fim_{portfolio_sel}",
             )
 
