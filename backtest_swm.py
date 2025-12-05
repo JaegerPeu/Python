@@ -437,17 +437,31 @@ def main():
             )
 
             proporcoes_editadas = []
-            for i, row in proporcoes_orig.iterrows():
+
+            # define quantas colunas por linha
+            N_COLS = 4
+            cols = st.columns(N_COLS)
+            
+            for idx, (i, row) in enumerate(proporcoes_orig.iterrows()):
+                col = cols[idx % N_COLS]          # escolhe a coluna (0 a 3)
+                if idx % N_COLS == 0 and idx != 0:
+                    # quando fecha um “grupo” de 4, cria uma nova linha de colunas
+                    cols = st.columns(N_COLS)
+                    col = cols[0]
+            
                 valor_default = row["Proporcao_original"] * 100
-                novo_valor = st.number_input(
-                    f"{row['nome_fundo']}",
-                    min_value=0.0,
-                    max_value=100.0,
-                    value=float(valor_default),
-                    step=0.5,
-                    key=f"prop_{portfolio_sel}_{i}",
-                )
-                proporcoes_editadas.append(novo_valor / 100.0)
+            
+                with col:
+                    novo_valor = st.number_input(
+                        f"{row['nome_fundo']}",
+                        min_value=0.0,
+                        max_value=100.0,
+                        value=float(valor_default),
+                        step=0.5,
+                        key=f"prop_{portfolio_sel}_{i}",
+                    )
+                    proporcoes_editadas.append(novo_valor / 100.0)
+
 
             soma_pct = sum(proporcoes_editadas) * 100
             st.write(
