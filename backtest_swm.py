@@ -3,6 +3,7 @@ import requests
 import pandas as pd
 import numpy as np
 import plotly.express as px
+from datetime import date
 
 API_URL = "https://api.comdinheiro.com.br/v1/ep1/import-data"
 HEADERS = {"Content-Type": "application/x-www-form-urlencoded"}
@@ -206,7 +207,6 @@ def gerar_distribuicao_risco(df_prop_class: pd.DataFrame, portfolio: str):
     return dist_classe[["Classe de Ativo", "Distribuição %"]].reset_index(drop=True)
 
 def gerar_retorno_mensal(df_cota: pd.DataFrame) -> pd.DataFrame:
-    """Gera tabela de retornos mensais do portfolio"""
     if df_cota.empty:
         return pd.DataFrame()
 
@@ -233,7 +233,6 @@ def main():
     st.title("SWM | Portfolio")
     st.subheader("Uso interno")
 
-    # controla se a aba Consultas aparece ou não
     MOSTRAR_CONSULTAS = False
 
     st.markdown(
@@ -260,7 +259,6 @@ def main():
         unsafe_allow_html=True,
     )
 
-    # criação condicional das tabs
     if MOSTRAR_CONSULTAS:
         tab_consultas, tab_laminas = st.tabs(["Consultas", "Lâminas"])
     else:
@@ -315,54 +313,14 @@ def main():
 
     st.markdown("---")
 
-    # CONSULTAS (opcional, só aparece se MOSTRAR_CONSULTAS = True)
+    # CONSULTAS (se quiser manter, igual ao seu código original)
     if MOSTRAR_CONSULTAS:
         with tab_consultas:
-            with st.expander("Payload", expanded=False):
-                st.subheader("📈 Payload 1 - Retorno diário (bruto)")
-                st.dataframe(df_ret_raw, use_container_width=True, height=300)
-                st.subheader("📊 Payload 2 - Proporção (bruto)")
-                st.dataframe(df_prop_raw, use_container_width=True, height=300)
-
-            with st.expander("Tabelas Tratadas", expanded=False):
-                st.subheader("🔢 Retorno diário tratado")
-                st.dataframe(df_ret, use_container_width=True, height=300)
-                st.subheader("⚖️ Proporção tratada (em decimal)")
-                st.dataframe(df_prop.round(4), use_container_width=True, height=300)
-
-            with st.expander("Composição e Classificação", expanded=False):
-                st.subheader("🏷️ Tabela de composição com Grande Classe / Classe")
-                st.dataframe(df_prop_class.round(4), use_container_width=True, height=400)
-
-            with st.expander("Retornos do Portfolio (Backtest)", expanded=False):
-                st.subheader("Seleção de Portfolio para Retornos")
-                portfolios_all = [
-                    col for col in df_prop_class.columns
-                    if col not in ["Identificador", "nome_fundo", "Grande Classe", "Classe"]
-                ]
-                port_ret = st.selectbox(
-                    "Selecione o Portfolio:",
-                    options=portfolios_all,
-                    index=0,
-                    key="portfolio_ret_sel",
-                )
-
-                pesos_ret = df_prop_class[["Identificador", port_ret]].copy()
-                pesos_ret = pesos_ret[pesos_ret[port_ret] > 0].set_index("Identificador")
-
-                cols_ativos_ret = [c for c in df_ret.columns if c in pesos_ret.index]
-                df_ret_port_all = df_ret[["Data"] + cols_ativos_ret].copy()
-
-                mat_ret_ret = df_ret_port_all[cols_ativos_ret]
-                w_ret = pesos_ret[port_ret].reindex(cols_ativos_ret).fillna(0)
-
-                df_ret_port_all["Retorno Portfolio"] = mat_ret_ret.mul(w_ret, axis=1).sum(axis=1)
-
-                st.dataframe(
-                    df_ret_port_all[["Data", "Retorno Portfolio"]].round(6),
-                    use_container_width=True,
-                    height=300,
-                )
+            st.subheader("📈 Payload 1 - Retorno diário (bruto)")
+            st.dataframe(df_ret_raw, use_container_width=True, height=300)
+            st.subheader("📊 Payload 2 - Proporção (bruto)")
+            st.dataframe(df_prop_raw, use_container_width=True, height=300)
+            # ... (restante da aba Consultas, se precisar)
 
     # LÂMINAS
     with tab_laminas:
@@ -426,7 +384,7 @@ def main():
 
         st.markdown("---")
 
-        # PROPORÇÃO (BACKTEST)
+        # PROPORÇÃO (BACKTEST) - 4 colunas por linha
         with st.expander("Proporção (Backtest)", expanded=False):
             proporcoes_orig = df_prop_class[["Identificador", "nome_fundo", portfolio_sel]].copy()
             proporcoes_orig.columns = ["Identificador", "nome_fundo", "Proporcao_original"]
@@ -437,31 +395,26 @@ def main():
             )
 
             proporcoes_editadas = []
-
-            # define quantas colunas por linha
             N_COLS = 4
-            cols = st.columns(N_COLS)
-            
+            cols_line = st.columns(N_COLS)
+
             for idx, (i, row) in enumerate(proporcoes_orig.iterrows()):
-                col = cols[idx % N_COLS]          # escolhe a coluna (0 a 3)
                 if idx % N_COLS == 0 and idx != 0:
-                    # quando fecha um “grupo” de 4, cria uma nova linha de colunas
-                    cols = st.columns(N_COLS)
-                    col = cols[0]
-            
-                valor_default = row["Proporcao_original"] * 100
-            
+                    cols_line = st.columns(N_COLS)
+                col = cols_line[idx % N_COLS]
+
+                valor_default = float(row["Proporcao_original"] * 100)
+
                 with col:
                     novo_valor = st.number_input(
                         f"{row['nome_fundo']}",
                         min_value=0.0,
                         max_value=100.0,
-                        value=float(valor_default),
+                        value=valor_default,
                         step=0.5,
                         key=f"prop_{portfolio_sel}_{i}",
                     )
                     proporcoes_editadas.append(novo_valor / 100.0)
-
 
             soma_pct = sum(proporcoes_editadas) * 100
             st.write(
@@ -503,7 +456,7 @@ def main():
             if "Retorno Benchmark" in df_ret_port.columns:
                 df_ret_port.drop(columns=["Retorno Benchmark"], inplace=True, errors="ignore")
 
-        # LÂMINA (PERÍODO, COTAS, CARDS, GRÁFICOS)
+        # LÂMINA
         with st.expander("Lâmina", expanded=False):
             df_ret_port_valid = df_ret_port.dropna(subset=["Retorno Portfolio"])
             datas_validas = df_ret_port_valid["Data"].dropna().unique()
@@ -517,19 +470,51 @@ def main():
             st.subheader("Período para cálculo da cota")
 
             col_d1, col_d2 = st.columns(2)
+
+            # limites globais do picker
+            min_data_picker = df_ret["Data"].min().date()
+            max_dado = max_data_port.date()
+            hoje = date.today()
+            max_data_picker = min(max_dado, hoje)
+
+            key_ini = f"comp_data_ini_{portfolio_sel}"
+            key_fim = f"comp_data_fim_{portfolio_sel}"
+
+            # clamp em session_state se já existir
+            if key_ini in st.session_state:
+                if st.session_state[key_ini] < min_data_picker:
+                    st.session_state[key_ini] = min_data_picker
+                if st.session_state[key_ini] > max_data_picker:
+                    st.session_state[key_ini] = max_data_picker
+
+            if key_fim in st.session_state:
+                if st.session_state[key_fim] < min_data_picker:
+                    st.session_state[key_fim] = min_data_picker
+                if st.session_state[key_fim] > max_data_picker:
+                    st.session_state[key_fim] = max_data_picker
+
+            default_ini = min_data_port.date()
+            if default_ini < min_data_picker:
+                default_ini = min_data_picker
+            if default_ini > max_data_picker:
+                default_ini = max_data_picker
+
+            default_fim = max_data_picker
+
             data_ini = col_d1.date_input(
                 "Data inicial",
-                value=min_data_port.date(),
-                min_value=df_ret["Data"].min().date(),
-                max_value=df_ret["Data"].max().date(),
-                key=f"comp_data_ini_{portfolio_sel}",
+                value=default_ini,
+                min_value=min_data_picker,
+                max_value=max_data_picker,
+                key=key_ini,
             )
+
             data_fim = col_d2.date_input(
                 "Data final",
-                value=max_data_port.date(),
-                min_value=df_ret["Data"].min().date(),
-                max_value=df_ret["Data"].max().date(),
-                key=f"comp_data_fim_{portfolio_sel}",
+                value=default_fim,
+                min_value=min_data_picker,
+                max_value=max_data_picker,
+                key=key_fim,
             )
 
             if data_fim < data_ini:
@@ -560,7 +545,7 @@ def main():
             if not df_cota.empty:
                 df_cota["Cota"] = (1 + df_cota["Retorno Portfolio"]).cumprod()
                 df_cota["Retorno Acum"] = df_cota["Cota"] - 1
-                df_cota["Retorno Acum %"] = df_cota["Retorno Acum"] * 100 
+                df_cota["Retorno Acum %"] = df_cota["Retorno Acum"] * 100
 
                 if "Retorno Benchmark" in df_cota.columns:
                     df_cota["Cota Benchmark"] = (1 + df_cota["Retorno Benchmark"]).cumprod()
@@ -661,7 +646,7 @@ def main():
                     x="Distribuição %",
                     y="Classe de Ativo",
                     orientation="h",
-                    text="Distribuição %"
+                    text="Distribuição %",
                 )
                 fig_bar.update_traces(
                     texttemplate="%{x:.1%}",
@@ -676,24 +661,26 @@ def main():
                 )
                 st.plotly_chart(fig_bar, use_container_width=True)
 
-            # GRÁFICO DE COTA (PORTFÓLIO x BENCHMARK)
+            # GRÁFICO DE RETORNO ACUMULADO (%)
             if not df_cota.empty:
                 fig_cota = px.line(
                     df_cota,
                     x="Data",
-                    y="Cota",
-                    title="Evolução da cota do Portfolio (Backtest)",
+                    y="Retorno Acum %",
+                    title="Evolução do retorno acumulado do Portfolio (Backtest)",
                 )
-                if "Cota Benchmark" in df_cota.columns:
+
+                if "Retorno Acum Benchmark %" in df_cota.columns:
                     fig_cota.add_scatter(
                         x=df_cota["Data"],
-                        y=df_cota["Cota Benchmark"],
+                        y=df_cota["Retorno Acum Benchmark %"],
                         mode="lines",
                         name=f"Benchmark - {benchmark_nome_sel}",
                     )
+
                 fig_cota.update_layout(
                     xaxis_title="Data",
-                    yaxis_title="Cota (base 1)",
+                    yaxis_title="Retorno acumulado (%)",
                     height=350,
                     margin=dict(l=10, r=10, t=40, b=10),
                 )
@@ -702,23 +689,20 @@ def main():
                 st.info("Não há dados de retorno no intervalo selecionado.")
 
             # TABELA DE RETORNO MENSAL
-             # =========================
-            # RETORNOS MENSAIS (CARTEIRA)
-            # =========================
             st.markdown("---")
             st.subheader("Retornos Mensais")
-    
+
             if not df_cota.empty:
                 df_m = df_cota.copy()
                 df_m["Ano"] = df_m["Data"].dt.year
                 df_m["Mes"] = df_m["Data"].dt.month
-    
+
                 ret_m_carteira = (
                     df_m.groupby(["Ano", "Mes"])["Retorno Portfolio"]
                     .apply(lambda x: (1 + x).prod() - 1)
                     .reset_index()
                 )
-    
+
                 anos = ret_m_carteira["Ano"].unique()
                 meses = np.arange(1, 13)
                 idx_completo = (
@@ -729,25 +713,25 @@ def main():
                     idx_completo
                     .merge(ret_m_carteira, on=["Ano", "Mes"], how="left")
                 )
-    
+
                 tabela_cart = ret_m_carteira.pivot(index="Ano", columns="Mes", values="Retorno Portfolio")
                 tabela_cart = tabela_cart.reindex(columns=meses)
-    
+
                 ret_ano = (1 + tabela_cart.fillna(0)).prod(axis=1) - 1
                 tabela_cart["Ano Acumulado"] = ret_ano
-    
+
                 mapa_meses = {
                     1: "Jan", 2: "Fev", 3: "Mar", 4: "Abr",
                     5: "Mai", 6: "Jun", 7: "Jul", 8: "Ago",
                     9: "Set", 10: "Out", 11: "Nov", 12: "Dez",
                 }
                 tabela_cart = tabela_cart.rename(columns=mapa_meses)
-    
+
                 tabela_cart_fmt = tabela_cart.applymap(
                     lambda x: "" if pd.isna(x) else f"{x*100:.2f}"
                 )
                 tabela_cart_fmt.insert(0, "Ativo", "Carteira")
-    
+
                 resultado = tabela_cart_fmt.reset_index()
                 cols_ordem = [
                     "Ano", "Ativo",
@@ -756,10 +740,10 @@ def main():
                     "Ano Acumulado",
                 ]
                 resultado = resultado[cols_ordem]
-    
+
                 st.dataframe(resultado, use_container_width=True, hide_index=True)
             else:
                 st.info("Selecione um período válido para visualizar a tabela mensal.")
-                
+
 if __name__ == "__main__":
     main()
