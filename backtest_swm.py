@@ -681,23 +681,26 @@ def main():
                 fig_cota = px.line(
                     df_cota,
                     x="Data",
-                    y="Cota",
-                    title="Evolução da cota do Portfolio (Backtest)",
+                    y="Retorno Acum %",
+                    title="Evolução do retorno acumulado do Portfolio (Backtest)",
                 )
-                if "Cota Benchmark" in df_cota.columns:
+            
+                if "Retorno Acum Benchmark %" in df_cota.columns:
                     fig_cota.add_scatter(
                         x=df_cota["Data"],
-                        y=df_cota["Cota Benchmark"],
+                        y=df_cota["Retorno Acum Benchmark %"],
                         mode="lines",
                         name=f"Benchmark - {benchmark_nome_sel}",
                     )
+            
                 fig_cota.update_layout(
                     xaxis_title="Data",
-                    yaxis_title="Cota (base 1)",
+                    yaxis_title="Retorno acumulado (%)",
                     height=350,
                     margin=dict(l=10, r=10, t=40, b=10),
                 )
                 st.plotly_chart(fig_cota, use_container_width=True)
+
             else:
                 st.info("Não há dados de retorno no intervalo selecionado.")
 
