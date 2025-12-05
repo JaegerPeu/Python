@@ -560,10 +560,12 @@ def main():
             if not df_cota.empty:
                 df_cota["Cota"] = (1 + df_cota["Retorno Portfolio"]).cumprod()
                 df_cota["Retorno Acum"] = df_cota["Cota"] - 1
+                df_cota["Retorno Acum %"] = df_cota["Retorno Acum"] * 100 
 
                 if "Retorno Benchmark" in df_cota.columns:
                     df_cota["Cota Benchmark"] = (1 + df_cota["Retorno Benchmark"]).cumprod()
                     df_cota["Retorno Acum Benchmark"] = df_cota["Cota Benchmark"] - 1
+                    df_cota["Retorno Acum Benchmark %"] = df_cota["Retorno Acum Benchmark"] * 100
 
                 ultima_data = df_cota["Data"].max()
 
