@@ -3,7 +3,6 @@ import requests
 import pandas as pd
 import numpy as np
 import plotly.express as px
-from datetime import date
 
 API_URL = "https://api.comdinheiro.com.br/v1/ep1/import-data"
 HEADERS = {"Content-Type": "application/x-www-form-urlencoded"}
@@ -517,25 +516,19 @@ def main():
 
             st.subheader("Período para cálculo da cota")
 
-            # depois de calcular min_data_port e max_data_port
-            hoje = date.today()
-            max_data_picker = min(max_data_port.date(), hoje)
-            
-            min_data_picker = df_ret["Data"].min().date()
-            
+            col_d1, col_d2 = st.columns(2)
             data_ini = col_d1.date_input(
                 "Data inicial",
                 value=min_data_port.date(),
-                min_value=min_data_picker,
-                max_value=max_data_picker,
+                min_value=df_ret["Data"].min().date(),
+                max_value=df_ret["Data"].max().date(),
                 key=f"comp_data_ini_{portfolio_sel}",
             )
-            
             data_fim = col_d2.date_input(
                 "Data final",
-                value=max_data_picker,      # usa hoje ou o último dado disponível, o que for menor
-                min_value=min_data_picker,
-                max_value=max_data_picker,
+                value=max_data_port.date(),
+                min_value=df_ret["Data"].min().date(),
+                max_value=df_ret["Data"].max().date(),
                 key=f"comp_data_fim_{portfolio_sel}",
             )
 
@@ -688,26 +681,23 @@ def main():
                 fig_cota = px.line(
                     df_cota,
                     x="Data",
-                    y="Retorno Acum %",
-                    title="Evolução do retorno acumulado do Portfolio (Backtest)",
+                    y="Cota",
+                    title="Evolução da cota do Portfolio (Backtest)",
                 )
-            
-                if "Retorno Acum Benchmark %" in df_cota.columns:
+                if "Cota Benchmark" in df_cota.columns:
                     fig_cota.add_scatter(
                         x=df_cota["Data"],
-                        y=df_cota["Retorno Acum Benchmark %"],
+                        y=df_cota["Cota Benchmark"],
                         mode="lines",
                         name=f"Benchmark - {benchmark_nome_sel}",
                     )
-            
                 fig_cota.update_layout(
                     xaxis_title="Data",
-                    yaxis_title="Retorno acumulado (%)",
+                    yaxis_title="Cota (base 1)",
                     height=350,
                     margin=dict(l=10, r=10, t=40, b=10),
                 )
                 st.plotly_chart(fig_cota, use_container_width=True)
-
             else:
                 st.info("Não há dados de retorno no intervalo selecionado.")
 
