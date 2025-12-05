@@ -662,29 +662,34 @@ def main():
                 st.plotly_chart(fig_bar, use_container_width=True)
 
             # GRÁFICO DE RETORNO ACUMULADO (%)
+            # GRÁFICO DE RETORNO DIÁRIO (% ao dia)
             if not df_cota.empty:
+                df_cota["Retorno Diário %"] = df_cota["Retorno Portfolio"] * 100
+            
                 fig_cota = px.line(
                     df_cota,
                     x="Data",
-                    y="Retorno Acum %",
-                    title="Evolução do retorno acumulado do Portfolio (Backtest)",
+                    y="Retorno Diário %",
+                    title="Retorno diário do Portfolio (Backtest)",
                 )
-
-                if "Retorno Acum Benchmark %" in df_cota.columns:
+            
+                if "Retorno Benchmark" in df_cota.columns:
+                    df_cota["Retorno Diário Benchmark %"] = df_cota["Retorno Benchmark"] * 100
                     fig_cota.add_scatter(
                         x=df_cota["Data"],
-                        y=df_cota["Retorno Acum Benchmark %"],
+                        y=df_cota["Retorno Diário Benchmark %"],
                         mode="lines",
                         name=f"Benchmark - {benchmark_nome_sel}",
                     )
-
+            
                 fig_cota.update_layout(
                     xaxis_title="Data",
-                    yaxis_title="Retorno acumulado (%)",
+                    yaxis_title="Retorno diário (%)",
                     height=350,
                     margin=dict(l=10, r=10, t=40, b=10),
                 )
                 st.plotly_chart(fig_cota, use_container_width=True)
+
             else:
                 st.info("Não há dados de retorno no intervalo selecionado.")
 
