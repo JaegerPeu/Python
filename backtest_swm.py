@@ -109,7 +109,7 @@ CARACTERISTICAS_PORT = {
 }
 
 PAYLOAD_RET_DIA = (
-    "username=solutionswm&password=Soluti%40ns2023&URL=HistoricoCotacao002.php%3F"
+    "username=solutionswm&password=Soluti%40ns2025&URL=HistoricoCotacao002.php%3F"
     "%26x%3DPortfolio_AvinI%2BPortfolio_AvinII%2BPortfolio_AvinIII%2BPortfolio_AvinIV"
     "%2BPortfolio_AvinV%2BPortfolio_AvinVI%2BEXPLODE%28Portfolio_AvinV%29"
     "%26data_ini%3D30122022%26data_fim%3D31129999%26pagina%3D1"
@@ -125,7 +125,7 @@ PAYLOAD_RET_DIA = (
 )
 
 PAYLOAD_PROP = (
-    "username=solutionswm&password=Soluti%40ns2023&URL=ComparaFundos001.php%3F%26datas%3D31%2F12%2F9999%26cnpjs%3DEXPLODE%28portfolio_avini%29%26indicadores%3Dexplode%28composicao_portfolio_comite_on%29%2Bpapel%26num_casas%3D2%26pc%3Dnome_fundo%26flag_transpor%3D0%26enviar_email%3D0%26mostrar_da%3D0%26op01%3Dtabela%26oculta_cabecalho_sup%3D0%26relat_alias_automatico%3Dcmd_alias_01&format=json3"
+    "username=solutionswm&password=Soluti%40ns2025&URL=ComparaFundos001.php%3F%26datas%3D31%2F12%2F9999%26cnpjs%3DEXPLODE%28portfolio_avini%29%26indicadores%3Dexplode%28composicao_portfolio_comite_on%29%2Bpapel%26num_casas%3D2%26pc%3Dnome_fundo%26flag_transpor%3D0%26enviar_email%3D0%26mostrar_da%3D0%26op01%3Dtabela%26oculta_cabecalho_sup%3D0%26relat_alias_automatico%3Dcmd_alias_01&format=json3"
 )
 
 @st.cache_data(show_spinner=True)
