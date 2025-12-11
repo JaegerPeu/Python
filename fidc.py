@@ -7,7 +7,7 @@ st.set_page_config(page_title="Dashboard FIDC", layout="wide")
 # === Leitura dos dados ===
 @st.cache_data
 def load_data():
-    df = pd.read_excel(r"C:\Users\PedroAugustoBernarde\Downloads\fidc.xlsx")
+    df = pd.read_excel("fidc.xlsx")
     # Padroniza nomes de colunas, se necessário
     df.columns = [c.strip().replace(" ", "_") for c in df.columns]
     return df
