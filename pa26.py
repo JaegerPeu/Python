@@ -18,7 +18,7 @@ st.markdown(
 
 # Sliders
 a1 = st.slider("Valor inicial (a₁)", min_value=0.0, max_value=1000.0, value=1000.0, step=50.0)
-Sn_meta = st.slider("Meta da soma (Sₙ)", min_value=0.0, max_value=500000.0, value=50000.0, step=100.0)
+Sn_meta = st.slider("Meta da soma (Sₙ)", min_value=0.0, max_value=50000.0, value=50000.0, step=100.0)
 n = st.slider("Número de períodos (n)", min_value=2, max_value=365, value=12, step=1)
 
 if n <= 1:
