@@ -62,7 +62,7 @@ st.markdown(f"""
 # CONFIG COMDINHEIRO
 # ====================================================
 CD_USER = "solutionswm"
-CD_PASS = "Soluti%40ns2023"
+CD_PASS = "Soluti%40ns2025"
 CD_URL = "https://api.comdinheiro.com.br/v1/ep1/import-data"
 
 URL_PARAM = (
@@ -345,6 +345,7 @@ if not dff.empty:
         legend=dict(orientation="h", y=-0.2)
     )
     st.plotly_chart(figf, use_container_width=True)
+
 
 
 
