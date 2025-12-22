@@ -1,216 +1,420 @@
 import streamlit as st
 import pandas as pd
+import numpy as np
 import plotly.express as px
+import requests
 
-st.set_page_config(page_title="Dashboard FIDC", layout="wide")
+st.set_page_config(
+    page_title="Monitoramento FIDC",
+    layout="wide"
+)
 
-# === Leitura dos dados ===
-@st.cache_data
-def load_data():
-    df = pd.read_excel("fidc.xlsx")
+st.title("Monitoramento – Solutions FIDC")
 
-    # Padroniza nomes de colunas: tira espaços e acentos básicos
-    df.columns = (
+# =========================
+# 1) Entrada do arquivo
+# =========================
+st.sidebar.header("Configurações")
+
+uploaded_file = st.sidebar.file_uploader(
+    "Carregue a base do fundo (Excel com abas macro e micro)",
+    type=["xlsx", "xls"]
+)
+
+if uploaded_file is None:
+    st.info("Carregue o arquivo para iniciar a análise.")
+    st.stop()
+
+# =========================
+# 2) Leitura das abas
+# =========================
+sheets = pd.read_excel(uploaded_file, sheet_name=None)
+
+macro_key = None
+micro_key = None
+for k in sheets.keys():
+    kl = str(k).strip().lower()
+    if "macro" in kl:
+        macro_key = k
+    if "micro" in kl:
+        micro_key = k
+
+if macro_key is None or micro_key is None:
+    st.error("Não encontrei abas 'macro' e 'micro' no arquivo. Verifique os nomes.")
+    st.write("Abas encontradas:", list(sheets.keys()))
+    st.stop()
+
+df_macro = sheets[macro_key].copy()
+df_micro = sheets[micro_key].copy()
+
+# =========================
+# 3) Normalização de colunas
+# =========================
+def normalize_cols(df: pd.DataFrame) -> pd.DataFrame:
+    cols = (
         df.columns
         .str.strip()
         .str.replace(" ", "_")
+        .str.replace("%", "pct", regex=False)
         .str.replace("ç", "c")
         .str.replace("ã", "a")
         .str.replace("á", "a")
         .str.replace("é", "e")
-        .str.replace("í", "i")
         .str.replace("ó", "o")
-        .str.replace("ú", "u")
+        .str.replace("í", "i")
     )
-
-    # Renomeia algumas chaves importantes para ficar consistente
-    rename_map = {
-        "Data_posicao": "Data_Posicao",
-        "%_PL": "%_PL",          # já vem como %_PL depois do replace
-        "PL_FUNDO": "PL_FUNDO",
-    }
-    df = df.rename(columns={k: v for k, v in rename_map.items() if k in df.columns})
-
-    # Garante tipos
-    if "Data_Posicao" in df.columns:
-        df["Data_Posicao"] = pd.to_datetime(df["Data_Posicao"], errors="coerce")
-
-    # Converte %_PL e PL_FUNDO para número (tirando % se vier como texto)
-    if "%_PL" in df.columns:
-        df["%_PL"] = (
-            df["%_PL"]
-            .astype(str)
-            .str.replace("%", "", regex=False)
-            .str.replace(",", ".", regex=False)
-        )
-        df["%_PL"] = pd.to_numeric(df["%_PL"], errors="coerce")
-
-    if "PL_FUNDO" in df.columns:
-        df["PL_FUNDO"] = (
-            df["PL_FUNDO"]
-            .astype(str)
-            .str.replace("%", "", regex=False)
-            .str.replace(",", ".", regex=False)
-        )
-        df["PL_FUNDO"] = pd.to_numeric(df["PL_FUNDO"], errors="coerce")
-
+    df.columns = cols
     return df
 
-df = load_data()
+df_macro = normalize_cols(df_macro)
+df_micro = normalize_cols(df_micro)
 
-# === Sidebar: filtros ===
-st.sidebar.header("Filtros")
+# ---------- MICRO ----------
+df_micro = normalize_cols(df_micro)
 
-# Filtro de Data de Posição
-if "Data_Posicao" in df.columns:
-    datas = sorted(df["Data_Posicao"].dropna().unique())
-    data_sel = st.sidebar.selectbox(
+df_micro = df_micro.rename(columns={
+    "Data_posição": "Data_posicao",
+    "Forma_de_condominio": "Forma_condominio",   # <-- no seu arquivo vira isso
+    "PL_FUNDO": "PL_FUNDO",
+    "Sub_Ponderada": "Sub_Ponderada",
+    "PDD_Ponderada": "PDD_Ponderada",
+    "pctPL": "pct_PL",    # %PL -> pctPL no normalize
+})
+
+
+if "Data_posicao" in df_micro.columns:
+    df_micro["Data_posicao"] = pd.to_datetime(df_micro["Data_posicao"], errors="coerce")
+
+percent_cols_micro = [
+    "PDD",
+    "Subordinação",
+    "pct_PL",
+    "Sub_Ponderada",
+    "PDD_Ponderada",
+]
+for c in percent_cols_micro:
+    if c in df_micro.columns:
+        if df_micro[c].dtype == "object":
+            df_micro[c] = (
+                df_micro[c]
+                .str.replace(".", "", regex=False)
+                .str.replace(",", ".", regex=False)
+            )
+        df_micro[c] = pd.to_numeric(df_micro[c], errors="coerce")
+
+if "PL_FUNDO" in df_micro.columns and df_micro["PL_FUNDO"].dtype == "object":
+    df_micro["PL_FUNDO"] = (
+        df_micro["PL_FUNDO"]
+        .str.replace(".", "", regex=False)
+        .str.replace(",", ".", regex=False)
+    )
+    df_micro["PL_FUNDO"] = pd.to_numeric(df_micro["PL_FUNDO"], errors="coerce")
+
+# ---------- MACRO ----------
+# ajuste o nome da coluna de PL se necessário (veja no debug abaixo)
+df_macro = df_macro.rename(columns={
+    "Valor_PL": "PL_macro",   # troque "Valor_PL" se o nome normalizado for outro
+    "Ativo": "Ativo",
+    "pct": "pct",
+    "%": "pct",
+    "Carrego": "Carrego",
+    "Subordinação": "Subordinacao",
+    "PDD": "PDD",
+})
+
+num_macro = ["pct", "Carrego", "Subordinacao", "PDD", "PL_macro"]
+for c in num_macro:
+    if c in df_macro.columns:
+        if df_macro[c].dtype == "object":
+            df_macro[c] = (
+                df_macro[c]
+                .str.replace(".", "", regex=False)
+                .str.replace(",", ".", regex=False)
+            )
+        df_macro[c] = pd.to_numeric(df_macro[c], errors="coerce")
+
+# =========================
+# 4) Filtro de data (micro)
+# =========================
+if "Data_posicao" in df_micro.columns:
+    max_date = df_micro["Data_posicao"].max()
+    min_date = df_micro["Data_posicao"].min()
+
+    sel_date = st.sidebar.date_input(
         "Data de posição",
-        options=datas,
-        format_func=lambda d: d.strftime("%d/%m/%Y"),
+        value=max_date.date() if pd.notnull(max_date) else None,
+        min_value=min_date.date() if pd.notnull(min_date) else None,
+        max_value=max_date.date() if pd.notnull(max_date) else None,
     )
+
+    df_micro = df_micro[df_micro["Data_posicao"] == pd.to_datetime(sel_date)]
+
+# =========================
+# 5) KPIs – micro / macro
+# =========================
+pl_total = df_macro["PL_macro"].sum() if "PL_macro" in df_macro.columns else np.nan
+n_fidcs = df_micro[df_micro["PRODUTO"] == "FIDC"]["Ativo"].nunique() if "PRODUTO" in df_micro.columns else np.nan
+n_ativos_macro = df_macro["Ativo"].nunique() if "Ativo" in df_macro.columns else np.nan
+
+pdd_pl_micro = df_micro["PDD_Ponderada"].sum() if "PDD_Ponderada" in df_micro.columns else np.nan
+sub_pl_micro = df_micro["Sub_Ponderada"].sum() if "Sub_Ponderada" in df_micro.columns else np.nan
+
+TX_ADM = 0.008  # 0,8%
+
+if all(c in df_macro.columns for c in ["pct", "Carrego"]):
+    cdi_plus = (df_macro["pct"] * df_macro["Carrego"]).sum()
 else:
-    data_sel = None
+    cdi_plus = np.nan
 
-origens = ["Todos"] + sorted([o for o in df["Origem"].dropna().unique()]) if "Origem" in df.columns else ["Todos"]
-origem_sel = st.sidebar.selectbox("Origem", origens)
+if not np.isnan(cdi_plus):
+    cdi_liq = ((1 + cdi_plus) / (1 + TX_ADM)) - 1
+else:
+    cdi_liq = np.nan
 
-cotas = ["Todas"] + sorted([c for c in df["Cota"].dropna().unique()]) if "Cota" in df.columns else ["Todas"]
-cota_sel = st.sidebar.selectbox("Tipo de Cota", cotas)
+if all(c in df_macro.columns for c in ["pct", "Subordinacao"]):
+    sub_macro = (df_macro["pct"] * df_macro["Subordinacao"]).sum()
+else:
+    sub_macro = np.nan
 
-industrys = ["Todas"] + sorted([i for i in df["Industry"].dropna().unique()]) if "Industry" in df.columns else ["Todas"]
-industry_sel = st.sidebar.selectbox("Industry", industrys)
+if all(c in df_macro.columns for c in ["pct", "PDD"]):
+    pdd_macro = (df_macro["pct"] * df_macro["PDD"]).sum()
+else:
+    pdd_macro = np.nan
 
-# Filtro por faixa de % PL
-if "%_PL" in df.columns:
-    min_pl, max_pl = float(df["%_PL"].min()), float(df["%_PL"].max())
-    faixa_pl = st.sidebar.slider(
-        "Faixa de % PL",
-        min_value=float(round(min_pl, 2)),
-        max_value=float(round(max_pl, 2)),
-        value=(float(0), float(round(max_pl, 2))),
+# =========================
+# 6) Cards de métricas
+# =========================
+col1, col2, col3, col4 = st.columns(4)
+col5, col6, col7, col8 = st.columns(4)
+
+if not np.isnan(pl_total):
+    pl_str = f"{pl_total:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+else:
+    pl_str = "-"
+
+col1.metric("PL", f"R$ {pl_str}")
+col2.metric("Nº de FIDCs", int(n_fidcs) if not np.isnan(n_fidcs) else "-")
+col3.metric("Nº de Ativos (macro)", int(n_ativos_macro) if not np.isnan(n_ativos_macro) else "-")
+col4.metric("PDD (micro)", f"{pdd_pl_micro*100:,.2f} %" if not np.isnan(pdd_pl_micro) else "-")
+
+col5.metric("CDI+ (carrego)", f"{cdi_plus*100:,.2f} %" if not np.isnan(cdi_plus) else "-")
+col6.metric("Taxa Adm.", f"{TX_ADM*100:,.2f} %")
+col7.metric("CDI Líquido", f"{cdi_liq*100:,.2f} %" if not np.isnan(cdi_liq) else "-")
+col8.metric("Subordinação (macro)", f"{sub_macro*100:,.2f} %" if not np.isnan(sub_macro) else "-")
+
+st.markdown("---")
+
+# =========================
+# 7) Linha 1 de gráficos – barras + treemap
+# =========================
+# g1 = st.columns(1)
+
+# with g1:
+#     st.subheader("%PL por Ativo (Top 15) – Micro")
+#     if "pct_PL" in df_micro.columns:
+#         df_pl = (
+#             df_micro.groupby("Ativo", as_index=False)["pct_PL"]
+#             .sum()
+#             .sort_values("pct_PL", ascending=False)
+#             .head(15)
+#         )
+#         st.bar_chart(df_pl.set_index("Ativo")["pct_PL"], use_container_width=True)
+#     else:
+#         st.warning("Coluna '%PL' não encontrada na aba micro (esperado 'pct_PL' após normalização).")
+
+# with g1:
+st.subheader("Concentração de %PL por Gestora")
+if all(c in df_micro.columns for c in ["Gestora", "Ativo", "pct_PL"]):
+    df_treemap = (
+        df_micro.groupby(["Gestora", "Ativo"], as_index=False)["pct_PL"]
+        .sum()
     )
+    fig_t = px.treemap(
+        df_treemap,
+        path=["Gestora", "Ativo"],
+        values="pct_PL",
+        color="Gestora",
+    )
+    fig_t.update_traces(texttemplate="%{label}<br>%{value:.2%}")
+    st.plotly_chart(fig_t, use_container_width=True)
 else:
-    faixa_pl = (0.0, 100.0)
+    st.warning("Para o treemap são necessárias as colunas 'Gestora', 'Ativo' e 'pct_PL' na aba micro.")
 
-# Aplica filtros
-df_filt = df.copy()
+# =========================
+# 8) Linha 2 – Cotas, Retorno‑alvo, Condomínio
+# =========================
+c1, c2 = st.columns(2)
 
-if data_sel is not None:
-    df_filt = df_filt[df_filt["Data_Posicao"] == data_sel]
-
-if origem_sel != "Todos" and "Origem" in df_filt.columns:
-    df_filt = df_filt[df_filt["Origem"] == origem_sel]
-
-if cota_sel != "Todas" and "Cota" in df_filt.columns:
-    df_filt = df_filt[df_filt["Cota"] == cota_sel]
-
-if industry_sel != "Todas" and "Industry" in df_filt.columns:
-    df_filt = df_filt[df_filt["Industry"] == industry_sel]
-
-if "%_PL" in df_filt.columns:
-    df_filt = df_filt[(df_filt["%_PL"] >= faixa_pl[0]) & (df_filt["%_PL"] <= faixa_pl[1])]
-
-# === KPIs no topo ===
-st.title("Dashboard FIDC")
-
-col1, col2, col3 = st.columns(3)
-with col1:
-    if "%_PL" in df_filt.columns:
-        st.metric("Soma % PL (filtro)", f"{df_filt['%_PL'].sum():.2f}%")
-    else:
-        st.metric("Soma % PL (filtro)", "N/D")
-
-with col2:
-    if "PL_FUNDO" in df_filt.columns:
-        # Aqui assumindo que PL_FUNDO é % do PL total (se for R$, mude o formato)
-        st.metric("Soma PL FUNDO (filtro)", f"{df_filt['PL_FUNDO'].sum():.2f}")
-    else:
-        st.metric("Soma PL FUNDO (filtro)", "N/D")
-
-with col3:
-    if "Ativo" in df_filt.columns:
-        st.metric("Qtd. Ativos (filtro)", df_filt["Ativo"].nunique())
-    else:
-        st.metric("Qtd. Ativos (filtro)", "N/D")
-
-if df_filt.empty:
-    st.warning("Nenhum dado após os filtros selecionados.")
-    st.stop()
-
-# === Gráficos principais ===
-col_g1, col_g2 = st.columns(2)
-
-# Tree map: hierarquia Origem -> Industry -> Ativo
-with col_g1:
-    st.subheader("Tree map por Origem / Industry / Ativo")
-    if {"Origem", "Industry", "Ativo", "%_PL"}.issubset(df_filt.columns):
-        fig_treemap = px.treemap(
-            df_filt,
-            path=[
-                df_filt["Origem"].fillna("Sem origem"),
-                df_filt["Industry"].fillna("Sem industry"),
-                "Ativo",
-            ],
-            values="%_PL",
-            color="Industry",
-            color_discrete_sequence=px.colors.qualitative.Set3,
-            hover_data={
-                "%_PL": ":.2f",
-                "PL_FUNDO": ":.2f",
-            } if "PL_FUNDO" in df_filt.columns else {"%_PL": ":.2f"},
-        )
-        fig_treemap.update_layout(margin=dict(t=30, l=0, r=0, b=0))
-        st.plotly_chart(fig_treemap, use_container_width=True)
-    else:
-        st.info("Colunas necessárias para o treemap não estão disponíveis.")
-
-# Pizza por Industry
-with col_g2:
-    st.subheader("Distribuição por Industry (% PL)")
-    if "Industry" in df_filt.columns and "%_PL" in df_filt.columns:
-        df_ind = (
-            df_filt.groupby("Industry", dropna=False)["%_PL"]
+# Cotas dos ativos na carteira (micro)
+with c1:
+    st.subheader("Cotas dos ativos na carteira")
+    if all(c in df_micro.columns for c in ["Cota", "pct_PL"]):
+        df_cota = (
+            df_micro.groupby("Cota", as_index=False)["pct_PL"]
             .sum()
-            .reset_index()
-            .rename(columns={"%_PL": "PL_Industry"})
+            .sort_values("pct_PL", ascending=False)
         )
-        df_ind["Industry"] = df_ind["Industry"].fillna("Sem industry")
-        df_ind = df_ind.sort_values("PL_Industry", ascending=False)
-        fig_pizza = px.pie(
-            df_ind,
-            names="Industry",
-            values="PL_Industry",
-            hole=0.3,
+        fig_cota = px.pie(
+            df_cota,
+            names="Cota",
+            values="pct_PL",
+            title="Distribuição de %PL por tipo de cota",
         )
-        st.plotly_chart(fig_pizza, use_container_width=True)
+        fig_cota.update_traces(textposition="inside", textinfo="percent+label")
+        st.plotly_chart(fig_cota, use_container_width=True)
     else:
-        st.info("Colunas necessárias para o gráfico de pizza não estão disponíveis.")
+        st.warning("Para o gráfico de cotas, preciso de 'Cota' e 'pct_PL' na aba micro.")
 
-# === Top N ativos por % PL ===
-st.subheader("Top ativos por % PL")
-top_n = st.slider("Quantidade de ativos no ranking", 5, 30, 10)
+# Retorno‑alvo (macro) – carrego ponderado pelo %
+with c2:
+    st.subheader("Retorno‑alvo")
+    if all(c in df_macro.columns for c in ["Ativo", "pct", "Carrego"]):
+        df_ret = df_macro.copy()
+        df_ret["peso_carrego"] = df_ret["pct"] * df_ret["Carrego"]
 
-if "%_PL" in df_filt.columns and "Ativo" in df_filt.columns:
-    df_top = df_filt.sort_values("%_PL", ascending=False).head(top_n)
-    fig_bar = px.bar(
-        df_top.sort_values("%_PL"),
-        x="%_PL",
-        y="Ativo",
-        color="Cota" if "Cota" in df_top.columns else None,
-        orientation="h",
-        text="%_PL",
+        # cria label no formato CDI+X%
+        df_ret["Carrego_label"] = df_ret["Carrego"].apply(
+            lambda x: f"CDI+{x*100:.2f}%"
+        )
+
+        fig_ret = px.pie(
+            df_ret,
+            names="Carrego_label",   # usa o label formatado
+            values="peso_carrego",
+            title="Distribuição do carrego por ativo principal",
+        )
+        fig_ret.update_traces(textposition="inside", textinfo="percent+label")
+        st.plotly_chart(fig_ret, use_container_width=True)
+    else:
+        st.warning("Para o retorno‑alvo, preciso de 'Ativo', 'pct' e 'Carrego' na aba macro.")
+
+c3, c4 = st.columns(2)
+# Condomínio (micro) – %PL por Forma de condomínio
+with c3:
+    st.subheader("Condomínio")
+    if all(c in df_micro.columns for c in ["Forma_condominio", "pct_PL"]):
+        df_cond = (
+            df_micro.groupby("Forma_condominio", as_index=False)["pct_PL"]
+            .sum()
+            .sort_values("pct_PL", ascending=False)
+        )
+        fig_cond = px.pie(
+            df_cond,
+            names="Forma_condominio",
+            values="pct_PL",
+            title="Distribuição de %PL por condomínio",
+        )
+        fig_cond.update_traces(textposition="inside", textinfo="percent+label")
+        st.plotly_chart(fig_cond, use_container_width=True)
+    else:
+        st.warning("Para o gráfico de condomínio, preciso de 'Forma_condominio' e 'pct_PL' na aba micro.")
+        
+with c4:
+    st.subheader("Alocação por setor")
+    if all(c in df_micro.columns for c in ["Industry", "pct_PL"]):
+        df_setor = (
+            df_micro.groupby("Industry", as_index=False)["pct_PL"]
+            .sum()
+            .sort_values("pct_PL", ascending=False)
+        )
+        fig_setor = px.pie(
+            df_setor,
+            names="Industry",
+            values="pct_PL",
+            title="Distribuição de %PL por setor",
+        )
+        fig_setor.update_traces(textposition="inside", textinfo="percent+label")
+        st.plotly_chart(fig_setor, use_container_width=True)
+    else:
+        st.warning("Para o gráfico de setores, preciso de 'Industry' e 'pct_PL' na aba micro.")
+
+
+
+    
+
+# =========================
+# 10) Evolução do PL via API Comdinheiro
+# =========================
+st.markdown("---")
+st.subheader("Evolução do PL")
+
+@st.cache_data(ttl=60*30)
+def carregar_pl_comdinheiro():
+    url = "https://api.comdinheiro.com.br/v1/ep1/import-data"
+
+    payload = (
+        "username=solutionswm"
+        "&password=Soluti%40ns2025"
+        "&URL=HistoricoIndicadoresFundos001.php%3F%26cnpjs%3D60800845000193_unica"
+        "%26data_ini%3D15072025%26data_fim%3Ddmenos2%26indicadores%3Dpatrimonio"
+        "%26op01%3Dtabela_h%26num_casas%3D2%26enviar_email%3D0"
+        "%26periodicidade%3Ddiaria%26cabecalho_excel%3Dmodo2"
+        "%26transpor%3D0%26asc_desc%3Ddesc%26tipo_grafico%3Dlinha"
+        "%26relat_alias_automatico%3Dcmd_alias_01"
+        "&format=json3"
     )
-    fig_bar.update_traces(texttemplate="%{text:.2f}%", textposition="outside")
-    fig_bar.update_layout(margin=dict(l=0, r=20, t=30, b=0))
-    st.plotly_chart(fig_bar, use_container_width=True)
-else:
-    st.info("Colunas necessárias para o ranking de ativos não estão disponíveis.")
 
-# # Tabela detalhada (opcional)
-# st.subheader("Tabela detalhada (dados filtrados)")
-# st.dataframe(
-#     df_filt.sort_values("%_PL", ascending=False),
-#     use_container_width=True,
-#     hide_index=True,
-# )
+    headers = {"Content-Type": "application/x-www-form-urlencoded"}
+
+    r = requests.post(url, data=payload, headers=headers, timeout=30)
+    r.raise_for_status()
+    data = r.json()  # dict com meta / tables
+
+    # tables: { "tab0": { "lin0": {...}, "lin1": {...}, ... } }
+    tables = data.get("tables", {})
+    tab0 = tables.get("tab0", {})
+
+    # converte linX -> lista de linhas
+    rows = []
+    for key in sorted(tab0.keys(), key=lambda x: int(x.replace("lin", ""))):
+        row = tab0[key]
+        rows.append([row.get("col0"), row.get("col1")])
+
+    # primeira linha (lin0) é cabeçalho
+    header = rows[0]
+    data_rows = rows[1:]
+
+    df_pl = pd.DataFrame(data_rows, columns=header)
+    return df_pl
+
+try:
+    df_pl = carregar_pl_comdinheiro()
+    #st.write("Colunas evolução PL (debug):", list(df_pl.columns))
+
+    # renomeia para Data / PL
+    # no seu JSON: col0 = "Data", col1 = "Patrimônio\nR$\n\n..."
+    rename_map = {}
+    for c in df_pl.columns:
+        cl = c.lower()
+        if "data" in cl:
+            rename_map[c] = "Data"
+        if "patrim" in cl:
+            rename_map[c] = "PL"
+
+    df_pl = df_pl.rename(columns=rename_map)
+
+    if all(c in df_pl.columns for c in ["Data", "PL"]):
+        # converter tipos
+        df_pl["Data"] = pd.to_datetime(df_pl["Data"], format="%d/%m/%Y", errors="coerce")
+        df_pl["PL"] = (
+            df_pl["PL"]
+            .astype(str)
+            .str.replace(".", "", regex=False)
+            .str.replace(",", ".", regex=False)
+        )
+        df_pl["PL"] = pd.to_numeric(df_pl["PL"], errors="coerce")
+
+        df_pl = df_pl.sort_values("Data")
+
+        st.line_chart(
+            df_pl.set_index("Data")["PL"],
+            use_container_width=True
+        )
+    else:
+        st.warning("Não encontrei colunas de Data e PL na resposta da API. Veja o debug acima.")
+
+except Exception as e:
+    st.error(f"Erro ao consultar a API da Comdinheiro: {e}")
+
+
+
