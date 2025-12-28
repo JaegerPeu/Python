@@ -65,7 +65,7 @@ def sim_ativo_unico(mu_anual, sigma_anual, n_periodos, n_sims, capital_inicial, 
 def sim_carteira(mu_anual_vec, sigma_anual_vec, corr_matrix, pesos_vec,
                  n_periodos, n_sims, capital_inicial, aporte_mensal):
     """
-    Motor robusto de Monte Carlo para carteira:
+    Motor Monte Carlo para carteira:
 
     mu_anual_vec   : (n_assets,)  retornos médios anuais
     sigma_anual_vec: (n_assets,)  volatilidades anuais
@@ -252,7 +252,7 @@ with tab1:
 
 # ======================== TAB 2 ==========================
 with tab2:
-    st.subheader("Monte Carlo – carteira (motor robusto)")
+    st.subheader("Monte Carlo – carteira")
 
     n_assets = st.number_input("Nº de ativos na carteira", 2, 15, 4)
     n_assets = int(n_assets)
