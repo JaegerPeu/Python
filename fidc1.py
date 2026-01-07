@@ -387,7 +387,7 @@ c4.metric("Nº de Ativos (macro)", int(kpi["n_ativos_macro"]) if not pd.isna(kpi
 c5.metric("PDD (ponderado)", fmt_pct(kpi["pdd_micro"]))
 c6.metric("Subordinação (ponderado)", fmt_pct(kpi["sub_micro"]))
 c7.metric("Carrego: CDI+", fmt_pct(kpi["cdi_plus"]))
-c8.metric("CDI Líquido", fmt_pct(kpi["cdi_liq"]))
+c8.metric("Carrego Líq.: CDI+", fmt_pct(kpi["cdi_liq"]))
 
 st.divider()
 
