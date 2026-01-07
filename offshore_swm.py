@@ -323,7 +323,7 @@ def main():
     if MOSTRAR_CONSULTAS:
         tab_consultas, tab_laminas= st.tabs(["Consultas", "Lâminas"])
     else:
-        tab_laminas = st.tabs(["Lâminas"])
+        tab_laminas = st.tabs(["Lâminas"])[0]
 
     # -------------------------
     # Carrega dados base
