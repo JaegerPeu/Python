@@ -532,7 +532,6 @@ def carregar_pl_comdinheiro(username: str, password: str) -> pd.DataFrame:
     return df_pl
 
 if use_cmd:
-    st.info("Por segurança, coloque usuário/senha em st.secrets['COMDINHEIRO_USER'] / ['COMDINHEIRO_PASS'].")
     user = st.secrets.get("COMDINHEIRO_USER", "")
     pwd = st.secrets.get("COMDINHEIRO_PASS", "")
 
