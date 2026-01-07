@@ -294,7 +294,7 @@ def main():
     st.title("SWM | Portfolio")
     st.subheader("Uso interno")
 
-    MOSTRAR_CONSULTAS = True
+    MOSTRAR_CONSULTAS = False
 
     st.markdown(
         """
@@ -323,7 +323,7 @@ def main():
     if MOSTRAR_CONSULTAS:
         tab_consultas, tab_laminas, tab_debug = st.tabs(["Consultas", "Lâminas", "Debug"])
     else:
-        tab_laminas, tab_debug = st.tabs(["Lâminas", "Debug"])
+        tab_laminas, tab_debug = st.tabs(["Lâminas"])
 
     # -------------------------
     # Carrega dados base
