@@ -321,9 +321,9 @@ def main():
     )
 
     if MOSTRAR_CONSULTAS:
-        tab_consultas, tab_laminas, tab_debug = st.tabs(["Consultas", "Lâminas", "Debug"])
+        tab_consultas, tab_laminas= st.tabs(["Consultas", "Lâminas"])
     else:
-        tab_laminas, tab_debug = st.tabs(["Lâminas", "Debug"])
+        tab_laminas = st.tabs(["Lâminas"])
 
     # -------------------------
     # Carrega dados base
@@ -932,83 +932,6 @@ def main():
             else:
                 st.info("Selecione um período válido para visualizar a tabela mensal.")
 
-    # -------------------------
-    # DEBUG
-    # -------------------------
-    with tab_debug:
-        st.subheader("Debug / Export")
-
-        meta = {
-            "API_URL": API_URL,
-            "HEADERS": HEADERS,
-            "portfolio_sel": portfolio_sel,
-            "benchmark_nome_sel": benchmark_nome_sel,
-            "benchmark_ident": benchmark_ident,
-            "data_ini": str(st.session_state.get(f"comp_data_ini_{portfolio_sel}", "")),
-            "data_fim": str(st.session_state.get(f"comp_data_fim_{portfolio_sel}", "")),
-        }
-        st.markdown("### Meta")
-        st.json(meta)
-
-        st.markdown("### Payloads")
-        with st.expander("Ver payloads", expanded=False):
-            st.text_area("PAYLOAD_RET_DIA", PAYLOAD_RET_DIA, height=180)
-            st.text_area("PAYLOAD_PROP", PAYLOAD_PROP, height=180)
-
-        debug_dfs = {
-            "df_ret_raw": df_ret_raw,
-            "df_ret": df_ret,
-            "df_ret_port": df_ret_port,
-            "df_cota": df_cota,
-            "df_prop_raw": df_prop_raw,
-            "df_prop": df_prop,
-            "df_prop_class": df_prop_class,
-            "df_prop_class_atual": df_prop_class_atual,
-            "pesos": pesos,
-        }
-
-        st.markdown("---")
-        st.markdown("### Download completo (ZIP)")
-        zip_bytes = build_debug_zip_bytes(
-            payload_ret=PAYLOAD_RET_DIA,
-            payload_prop=PAYLOAD_PROP,
-            meta=meta,
-            dfs=debug_dfs,
-        )
-        st.download_button(
-            "Baixar debug.zip (payloads + meta + CSVs)",
-            data=zip_bytes,
-            file_name="debug.zip",
-            mime="application/zip",
-            use_container_width=True,
-        )
-
-        st.markdown("---")
-        st.markdown("### Inspecionar / baixar DF individual")
-        nome_df = st.selectbox("Escolha o DataFrame:", list(debug_dfs.keys()))
-        dfx = debug_dfs[nome_df]
-
-        c1, c2, c3 = st.columns(3)
-        c1.metric("Linhas", int(dfx.shape[0]))
-        c2.metric("Colunas", int(dfx.shape[1]))
-        c3.metric("NaNs (total)", int(dfx.isna().sum().sum()))
-
-        with st.expander("dtypes / NaNs por coluna", expanded=False):
-            st.dataframe(
-                pd.DataFrame({"dtype": dfx.dtypes.astype(str), "na": dfx.isna().sum()}),
-                use_container_width=True,
-                height=260,
-            )
-
-        st.dataframe(dfx, use_container_width=True, height=450)
-
-        st.download_button(
-            f"Baixar {nome_df}.csv",
-            data=df_to_csv_bytes(dfx),
-            file_name=f"{nome_df}.csv",
-            mime="text/csv",
-            use_container_width=True,
-        )
 
 
 if __name__ == "__main__":
