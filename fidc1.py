@@ -347,64 +347,64 @@ st.divider()
 # =========================
 # Evolução dos KPIs (micro)
 # =========================
-st.subheader("Evolução dos KPIs (micro)")
+with st.expander("Evolução dos KPIs"):
 
-# Base temporal por data
-agg_map = {}
-if "PL_FUNDO" in df_micro_hist.columns:
-    agg_map["PL_FUNDO"] = "sum"
-if "PDD_Ponderada" in df_micro_hist.columns:
-    agg_map["PDD_Ponderada"] = "sum"
-if "Sub_Ponderada" in df_micro_hist.columns:
-    agg_map["Sub_Ponderada"] = "sum"
-if "Ativo" in df_micro_hist.columns:
-    agg_map["Ativo"] = pd.Series.nunique
-if "pct_PL" in df_micro_hist.columns:
-    agg_map["pct_PL"] = "sum"
-
-df_kpi_time = (df_micro_hist
-    .groupby("Data_posicao", as_index=False)
-    .agg(agg_map)
-    .rename(columns={
-        "PL_FUNDO": "PL_total",
-        "PDD_Ponderada": "PDD_micro",
-        "Sub_Ponderada": "Sub_micro",
-        "Ativo": "n_ativos",
-        "pct_PL": "pct_pl_sum"
-    })
-    .sort_values("Data_posicao")
-)
-
-# 3 linhas (PL, PDD, Sub)
-g1, g2, g3 = st.columns(3)
-
-with g1:
-    if "PL_total" in df_kpi_time.columns:
-        fig = px.line(df_kpi_time, x="Data_posicao", y="PL_total", markers=True, title="PL total (micro)")
-        st.plotly_chart(fig, use_container_width=True)
-    else:
-        st.warning("Sem coluna PL_FUNDO para calcular PL total.")
-
-with g2:
-    if "PDD_micro" in df_kpi_time.columns:
-        fig = px.line(df_kpi_time, x="Data_posicao", y="PDD_micro", markers=True, title="PDD ponderada (micro)")
-        st.plotly_chart(fig, use_container_width=True)
-    else:
-        st.warning("Sem PDD_Ponderada para evolução.")
-
-with g3:
-    if "Sub_micro" in df_kpi_time.columns:
-        fig = px.line(df_kpi_time, x="Data_posicao", y="Sub_micro", markers=True, title="Subordinação ponderada (micro)")
-        st.plotly_chart(fig, use_container_width=True)
-    else:
-        st.warning("Sem Sub_Ponderada para evolução.")
-
-with st.expander("Checagens rápidas da base (micro)"):
-    if "pct_pl_sum" in df_kpi_time.columns:
-        st.write("Soma de %PL por data (ideal ~ 1.0):")
-        st.dataframe(df_kpi_time[["Data_posicao", "pct_pl_sum"]], use_container_width=True)
-    st.write("Snapshot:")
-    st.dataframe(df_micro_current, use_container_width=True)
+    # Base temporal por data
+    agg_map = {}
+    if "PL_FUNDO" in df_micro_hist.columns:
+        agg_map["PL_FUNDO"] = "sum"
+    if "PDD_Ponderada" in df_micro_hist.columns:
+        agg_map["PDD_Ponderada"] = "sum"
+    if "Sub_Ponderada" in df_micro_hist.columns:
+        agg_map["Sub_Ponderada"] = "sum"
+    if "Ativo" in df_micro_hist.columns:
+        agg_map["Ativo"] = pd.Series.nunique
+    if "pct_PL" in df_micro_hist.columns:
+        agg_map["pct_PL"] = "sum"
+    
+    df_kpi_time = (df_micro_hist
+        .groupby("Data_posicao", as_index=False)
+        .agg(agg_map)
+        .rename(columns={
+            "PL_FUNDO": "PL_total",
+            "PDD_Ponderada": "PDD_micro",
+            "Sub_Ponderada": "Sub_micro",
+            "Ativo": "n_ativos",
+            "pct_PL": "pct_pl_sum"
+        })
+        .sort_values("Data_posicao")
+    )
+    
+    # 3 linhas (PL, PDD, Sub)
+    g1, g2, g3 = st.columns(3)
+    
+    with g1:
+        if "PL_total" in df_kpi_time.columns:
+            fig = px.line(df_kpi_time, x="Data_posicao", y="PL_total", markers=True, title="PL total (micro)")
+            st.plotly_chart(fig, use_container_width=True)
+        else:
+            st.warning("Sem coluna PL_FUNDO para calcular PL total.")
+    
+    with g2:
+        if "PDD_micro" in df_kpi_time.columns:
+            fig = px.line(df_kpi_time, x="Data_posicao", y="PDD_micro", markers=True, title="PDD ponderada (micro)")
+            st.plotly_chart(fig, use_container_width=True)
+        else:
+            st.warning("Sem PDD_Ponderada para evolução.")
+    
+    with g3:
+        if "Sub_micro" in df_kpi_time.columns:
+            fig = px.line(df_kpi_time, x="Data_posicao", y="Sub_micro", markers=True, title="Subordinação ponderada (micro)")
+            st.plotly_chart(fig, use_container_width=True)
+        else:
+            st.warning("Sem Sub_Ponderada para evolução.")
+    
+    with st.expander("Checagens rápidas da base (micro)"):
+        if "pct_pl_sum" in df_kpi_time.columns:
+            st.write("Soma de %PL por data (ideal ~ 1.0):")
+            st.dataframe(df_kpi_time[["Data_posicao", "pct_pl_sum"]], use_container_width=True)
+        st.write("Snapshot:")
+        st.dataframe(df_micro_current, use_container_width=True)
 
 st.divider()
 
