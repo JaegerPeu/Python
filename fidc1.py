@@ -103,43 +103,8 @@ def standardize_micro(df_micro_raw: pd.DataFrame) -> pd.DataFrame:
         "Forma_de_condomínio": "Forma_condominio",
         "Forma_de_condominio_": "Forma_condominio",
         "Forma_de_condominio__": "Forma_condominio",
-        "Forma_de_condominio": "Forma_condominio",
-        "Forma_de_condominio": "Forma_condominio",
-        "Forma_de_condominio": "Forma_condominio",
-        "Forma_de_condominio": "Forma_condominio",
-        "Forma_de_condominio": "Forma_condominio",
-
-        "Forma_de_condominio": "Forma_condominio",
-        "Forma_de_condominio": "Forma_condominio",
-
-        "Forma_de_condominio": "Forma_condominio",
-        "Forma_de_condominio": "Forma_condominio",
-
-        "Forma_de_condominio": "Forma_condominio",
-
-        "Forma_de_condominio": "Forma_condominio",
-        "Forma_de_condominio": "Forma_condominio",
-
-        "Forma_de_condominio": "Forma_condominio",
-        "Forma_de_condomínio": "Forma_condominio",
-        "Forma_de_condominio": "Forma_condominio",
-        "Forma_de_condominio": "Forma_condominio",
-        "Forma_de_condominio": "Forma_condominio",
-
-        # do seu arquivo: "Forma de condomínio" -> "Forma_de_condominio" após normalize
-        "Forma_de_condominio": "Forma_condominio",
 
         # pesos e colunas chave
-        "pctPL": "pct_PL",
-        "pctPL_": "pct_PL",
-        "pctPL__": "pct_PL",
-        "pctPL___": "pct_PL",
-        "pctPL____": "pct_PL",
-        "pctPL_____": "pct_PL",
-        "pctPL______": "pct_PL",
-        "pctPL_______": "pct_PL",
-
-        # do seu arquivo: "%PL" -> "pctPL"
         "pctPL": "pct_PL",
 
         # do seu arquivo: "PL FUNDO" -> "PL_FUNDO" após normalize
@@ -149,11 +114,9 @@ def standardize_micro(df_micro_raw: pd.DataFrame) -> pd.DataFrame:
         "PDD_Ponderada": "PDD_Ponderada",
     }
 
-    # aplica rename somente para colunas que existirem
     rename_map = {k: v for k, v in rename_map.items() if k in df.columns}
     df = df.rename(columns=rename_map)
 
-    # tipos
     if "Data_posicao" in df.columns:
         df["Data_posicao"] = parse_data_posicao(df["Data_posicao"])
 
@@ -169,26 +132,11 @@ def standardize_micro(df_micro_raw: pd.DataFrame) -> pd.DataFrame:
 
 def standardize_macro(df_macro_raw: pd.DataFrame) -> pd.DataFrame:
     df = normalize_cols(df_macro_raw)
-
-    # remove colunas lixo tipo "Unnamed: 6"
     df = df.loc[:, ~df.columns.astype(str).str.lower().str.startswith("unnamed")]
 
     rename_map = {
         "Valor_PL": "PL_macro",
-        "Valor_PL_": "PL_macro",
-        "Valor_PL__": "PL_macro",
-        "Valor_PL___": "PL_macro",
-        "Valor_PL____": "PL_macro",
-
-        # do seu arquivo: "Valor PL" -> "Valor_PL" após normalize
-        "Valor_PL": "PL_macro",
-
-        # do seu arquivo: "%" -> "pct"
         "pct": "pct",
-        "pct_": "pct",
-        "pct__": "pct",
-        "pct___": "pct",
-
         "Carrego": "Carrego",
         "Subordinacao": "Subordinacao",
         "Subordinação": "Subordinacao",
@@ -326,15 +274,114 @@ def fmt_pct(x):
         return "-"
     return f"{x*100:,.2f} %".replace(",", "X").replace(".", ",").replace("X", ".")
 
+# ============================================================
+# >>> AJUSTE: PL do card via Comdinheiro (na data do snapshot)
+# ============================================================
+@st.cache_data(ttl=60*30)
+def carregar_pl_comdinheiro(username: str, password: str) -> pd.DataFrame:
+    # doc: Comdinheiro usa POST com username/password, endpoint import_data e retorno em json/xml [page:2]
+    url = "https://api.comdinheiro.com.br/v1/ep1/import-data"
+
+    payload = (
+        f"username={username}"
+        f"&password={password}"
+        "&URL=HistoricoIndicadoresFundos001.php%3F%26cnpjs%3D60800845000193_unica"
+        "%26data_ini%3D15072025%26data_fim%3Ddmenos2%26indicadores%3Dpatrimonio"
+        "%26op01%3Dtabela_h%26num_casas%3D2%26enviar_email%3D0"
+        "%26periodicidade%3Ddiaria%26cabecalho_excel%3Dmodo2"
+        "%26transpor%3D0%26asc_desc%3Ddesc%26tipo_grafico%3Dlinha"
+        "%26relat_alias_automatico%3Dcmd_alias_01"
+        "&format=json3"
+    )
+
+    headers = {"Content-Type": "application/x-www-form-urlencoded"}
+    r = requests.post(url, data=payload, headers=headers, timeout=30)
+    r.raise_for_status()
+    data = r.json()
+
+    tables = data.get("tables", {})
+    tab0 = tables.get("tab0", {})
+    rows = []
+    for key in sorted(tab0.keys(), key=lambda x: int(x.replace("lin", ""))):
+        row = tab0[key]
+        rows.append([row.get("col0"), row.get("col1")])
+
+    header = rows[0]
+    data_rows = rows[1:]
+    df_pl = pd.DataFrame(data_rows, columns=header)
+
+    rename_map = {}
+    for c in df_pl.columns:
+        cl = str(c).lower()
+        if "data" in cl:
+            rename_map[c] = "Data"
+        if "patrim" in cl:
+            rename_map[c] = "PL"
+    df_pl = df_pl.rename(columns=rename_map)
+
+    if not all(c in df_pl.columns for c in ["Data", "PL"]):
+        raise ValueError("Resposta da API sem colunas Data/PL.")
+
+    df_pl["Data"] = pd.to_datetime(df_pl["Data"], format="%d/%m/%Y", errors="coerce").dt.normalize()
+    df_pl["PL"] = to_numeric_ptbr(df_pl["PL"])
+    df_pl = df_pl.dropna(subset=["Data"]).sort_values("Data")
+    return df_pl
+
+
+def pl_cmd_no_dia(df_pl_cmd: pd.DataFrame, sel_date_: pd.Timestamp):
+    if df_pl_cmd is None or df_pl_cmd.empty:
+        return np.nan, None
+
+    d = pd.to_datetime(sel_date_).normalize()
+    tmp = df_pl_cmd.copy()
+    tmp = tmp.dropna(subset=["Data", "PL"]).sort_values("Data")
+
+    exact = tmp[tmp["Data"] == d]
+    if not exact.empty:
+        return float(exact["PL"].iloc[-1]), "exata"
+
+    prev = tmp[tmp["Data"] <= d]
+    if not prev.empty:
+        return float(prev["PL"].iloc[-1]), "anterior"
+
+    return np.nan, None
+
+
+df_pl_cmd = None
+pl_fundo_cmd = np.nan
+pl_fundo_status = None
+
+# st.secrets é o local correto para credenciais no Streamlit [page:1]
+user = st.secrets.get("COMDINHEIRO_USER", "")
+pwd = st.secrets.get("COMDINHEIRO_PASS", "")
+
+if user and pwd:
+    try:
+        df_pl_cmd = carregar_pl_comdinheiro(user, pwd)
+        pl_fundo_cmd, pl_fundo_status = pl_cmd_no_dia(df_pl_cmd, sel_date)
+    except Exception:
+        df_pl_cmd = None
+        pl_fundo_cmd = np.nan
+        pl_fundo_status = None
+
 # =========================
 # Cards
 # =========================
 c1, c2, c3, c4 = st.columns(4)
 c5, c6, c7, c8 = st.columns(4)
 
-c1.metric("PL (micro, soma PL FUNDO)", fmt_brl(kpi["pl_micro"]))
+# >>> AJUSTE AQUI: card de PL agora usa Comdinheiro (se disponível)
+if not pd.isna(pl_fundo_cmd):
+    titulo_pl = "PL do fundo (Comdinheiro)"
+    if pl_fundo_status == "anterior":
+        titulo_pl += " (último disp.)"
+    c1.metric(titulo_pl, fmt_brl(pl_fundo_cmd))
+else:
+    # fallback: mantém o comportamento antigo
+    c1.metric("PL (micro, soma PL FUNDO)", fmt_brl(kpi["pl_micro"]))
+
 c3.metric("Nº de FIDCs", int(kpi["n_fidcs"]) if not pd.isna(kpi["n_fidcs"]) else "-")
-c2.metric("Taxa Adm","0,8%")
+c2.metric("Taxa Adm", "0,8%")
 c4.metric("Nº de Ativos (macro)", int(kpi["n_ativos_macro"]) if not pd.isna(kpi["n_ativos_macro"]) else "-")
 
 c5.metric("PDD (micro, ponderado)", fmt_pct(kpi["pdd_micro"]))
@@ -349,7 +396,6 @@ st.divider()
 # =========================
 with st.expander("Evolução dos KPIs"):
 
-    # Base temporal por data
     agg_map = {}
     if "PL_FUNDO" in df_micro_hist.columns:
         agg_map["PL_FUNDO"] = "sum"
@@ -361,7 +407,7 @@ with st.expander("Evolução dos KPIs"):
         agg_map["Ativo"] = pd.Series.nunique
     if "pct_PL" in df_micro_hist.columns:
         agg_map["pct_PL"] = "sum"
-    
+
     df_kpi_time = (df_micro_hist
         .groupby("Data_posicao", as_index=False)
         .agg(agg_map)
@@ -374,31 +420,30 @@ with st.expander("Evolução dos KPIs"):
         })
         .sort_values("Data_posicao")
     )
-    
-    # 3 linhas (PL, PDD, Sub)
+
     g1, g2, g3 = st.columns(3)
-    
+
     with g1:
         if "PL_total" in df_kpi_time.columns:
             fig = px.line(df_kpi_time, x="Data_posicao", y="PL_total", markers=True, title="PL total (micro)")
             st.plotly_chart(fig, use_container_width=True)
         else:
             st.warning("Sem coluna PL_FUNDO para calcular PL total.")
-    
+
     with g2:
         if "PDD_micro" in df_kpi_time.columns:
             fig = px.line(df_kpi_time, x="Data_posicao", y="PDD_micro", markers=True, title="PDD ponderada (micro)")
             st.plotly_chart(fig, use_container_width=True)
         else:
             st.warning("Sem PDD_Ponderada para evolução.")
-    
+
     with g3:
         if "Sub_micro" in df_kpi_time.columns:
             fig = px.line(df_kpi_time, x="Data_posicao", y="Sub_micro", markers=True, title="Subordinação ponderada (micro)")
             st.plotly_chart(fig, use_container_width=True)
         else:
             st.warning("Sem Sub_Ponderada para evolução.")
-    
+
     with st.expander("Checagens rápidas da base (micro)"):
         if "pct_pl_sum" in df_kpi_time.columns:
             st.write("Soma de %PL por data (ideal ~ 1.0):")
@@ -413,19 +458,14 @@ st.divider()
 # =========================
 st.subheader("Snapshot (data selecionada)")
 
-
-
-
 st.caption("Concentração de %PL por Gestora")
 if all(c in df_micro_current.columns for c in ["Gestora", "Ativo", "pct_PL"]):
-        df_treemap = df_micro_current.groupby(["Gestora", "Ativo"], as_index=False)["pct_PL"].sum()
-        fig_t = px.treemap(df_treemap, path=["Gestora", "Ativo"], values="pct_PL", color="Gestora")
-        fig_t.update_traces(texttemplate="%{label}<br>%{value:.2%}")
-        st.plotly_chart(fig_t, use_container_width=True)
+    df_treemap = df_micro_current.groupby(["Gestora", "Ativo"], as_index=False)["pct_PL"].sum()
+    fig_t = px.treemap(df_treemap, path=["Gestora", "Ativo"], values="pct_PL", color="Gestora")
+    fig_t.update_traces(texttemplate="%{label}<br>%{value:.2%}")
+    st.plotly_chart(fig_t, use_container_width=True)
 else:
-        st.warning("Para o treemap preciso de 'Gestora', 'Ativo' e 'pct_PL'.")
-
-
+    st.warning("Para o treemap preciso de 'Gestora', 'Ativo' e 'pct_PL'.")
 
 colB, colC = st.columns(2)
 
@@ -450,6 +490,7 @@ with colC:
         st.plotly_chart(fig, use_container_width=True)
     else:
         st.warning("Para cotas preciso de 'Cota' e 'pct_PL'.")
+
 colD, colE = st.columns(2)
 with colD:
     st.caption("Condomínio")
@@ -483,54 +524,6 @@ st.subheader("Evolução do PL (Comdinheiro) – opcional")
 
 use_cmd = st.toggle("Consultar Comdinheiro", value=False)
 
-@st.cache_data(ttl=60*30)
-def carregar_pl_comdinheiro(username: str, password: str) -> pd.DataFrame:
-    url = "https://api.comdinheiro.com.br/v1/ep1/import-data"
-    payload = (
-        f"username={username}"
-        f"&password={password}"
-        "&URL=HistoricoIndicadoresFundos001.php%3F%26cnpjs%3D60800845000193_unica"
-        "%26data_ini%3D15072025%26data_fim%3Ddmenos2%26indicadores%3Dpatrimonio"
-        "%26op01%3Dtabela_h%26num_casas%3D2%26enviar_email%3D0"
-        "%26periodicidade%3Ddiaria%26cabecalho_excel%3Dmodo2"
-        "%26transpor%3D0%26asc_desc%3Ddesc%26tipo_grafico%3Dlinha"
-        "%26relat_alias_automatico%3Dcmd_alias_01"
-        "&format=json3"
-    )
-    headers = {"Content-Type": "application/x-www-form-urlencoded"}
-    r = requests.post(url, data=payload, headers=headers, timeout=30)
-    r.raise_for_status()
-    data = r.json()
-
-    tables = data.get("tables", {})
-    tab0 = tables.get("tab0", {})
-    rows = []
-    for key in sorted(tab0.keys(), key=lambda x: int(x.replace("lin", ""))):
-        row = tab0[key]
-        rows.append([row.get("col0"), row.get("col1")])
-
-    header = rows[0]
-    data_rows = rows[1:]
-    df_pl = pd.DataFrame(data_rows, columns=header)
-
-    # detecta nomes
-    rename_map = {}
-    for c in df_pl.columns:
-        cl = str(c).lower()
-        if "data" in cl:
-            rename_map[c] = "Data"
-        if "patrim" in cl:
-            rename_map[c] = "PL"
-    df_pl = df_pl.rename(columns=rename_map)
-
-    if not all(c in df_pl.columns for c in ["Data", "PL"]):
-        raise ValueError("Resposta da API sem colunas Data/PL.")
-
-    df_pl["Data"] = pd.to_datetime(df_pl["Data"], format="%d/%m/%Y", errors="coerce")
-    df_pl["PL"] = to_numeric_ptbr(df_pl["PL"])
-    df_pl = df_pl.dropna(subset=["Data"]).sort_values("Data")
-    return df_pl
-
 if use_cmd:
     user = st.secrets.get("COMDINHEIRO_USER", "")
     pwd = st.secrets.get("COMDINHEIRO_PASS", "")
@@ -539,7 +532,10 @@ if use_cmd:
         st.warning("Secrets não configurados. Desmarque o toggle ou configure o .streamlit/secrets.toml.")
     else:
         try:
-            df_pl_cmd = carregar_pl_comdinheiro(user, pwd)
+            # reaproveita se já carregou acima; senão carrega agora
+            if df_pl_cmd is None or df_pl_cmd.empty:
+                df_pl_cmd = carregar_pl_comdinheiro(user, pwd)
+
             fig = px.line(df_pl_cmd, x="Data", y="PL", title="PL via Comdinheiro", markers=True)
             st.plotly_chart(fig, use_container_width=True)
         except Exception as e:
