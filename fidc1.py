@@ -372,7 +372,7 @@ c5, c6, c7, c8 = st.columns(4)
 
 # >>> AJUSTE AQUI: card de PL agora usa Comdinheiro (se disponível)
 if not pd.isna(pl_fundo_cmd):
-    titulo_pl = "PL do fundo (Comdinheiro)"
+    titulo_pl = "PL do fundo"
     if pl_fundo_status == "anterior":
         titulo_pl += " (último disp.)"
     c1.metric(titulo_pl, fmt_brl(pl_fundo_cmd))
@@ -384,10 +384,10 @@ c3.metric("Nº de FIDCs", int(kpi["n_fidcs"]) if not pd.isna(kpi["n_fidcs"]) els
 c2.metric("Taxa Adm", "0,8%")
 c4.metric("Nº de Ativos (macro)", int(kpi["n_ativos_macro"]) if not pd.isna(kpi["n_ativos_macro"]) else "-")
 
-c5.metric("PDD (micro, ponderado)", fmt_pct(kpi["pdd_micro"]))
-c6.metric("Sub (micro, ponderado)", fmt_pct(kpi["sub_micro"]))
-c7.metric("CDI+ (macro)", fmt_pct(kpi["cdi_plus"]))
-c8.metric("CDI Líquido (macro)", fmt_pct(kpi["cdi_liq"]))
+c5.metric("PDD (ponderado)", fmt_pct(kpi["pdd_micro"]))
+c6.metric("Subordinação (ponderado)", fmt_pct(kpi["sub_micro"]))
+c7.metric("CDI+", fmt_pct(kpi["cdi_plus"]))
+c8.metric("CDI Líquido", fmt_pct(kpi["cdi_liq"]))
 
 st.divider()
 
