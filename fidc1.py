@@ -527,8 +527,8 @@ use_cmd = st.toggle("Consultar Comdinheiro", value=False)
 @st.cache_data(ttl=60*30)
 def carregar_cotas_cmd(username: str, password: str) -> pd.DataFrame:
     """
-    Baixa série de níveis (base 1) para o fundo e CDI via HistoricoCotacao002.
-    Observação: a API retorna tabelas tab0/linX/colY.
+    HistoricoCotacao002: retorna numero_indice com base 1 para o Fundo e CDI.
+    Parse robusto: fixa Data/Fundo/CDI por posição (evita KeyError 'Data'). [page:2]
     """
     url = "https://api.comdinheiro.com.br/v1/ep1/import-data"
     headers = {"Content-Type": "application/x-www-form-urlencoded"}
@@ -550,62 +550,55 @@ def carregar_cotas_cmd(username: str, password: str) -> pd.DataFrame:
         "%26line_width%3D2%26tipo_grafico%3Dline%26tooltip%3Dunica"
         "&format=json3"
     )
+
     r = requests.post(url, data=payload, headers=headers, timeout=30)
     r.raise_for_status()
     data = r.json()
 
     tables = data.get("tables", {})
     tab0 = tables.get("tab0", {})
+    if not tab0:
+        raise ValueError("Resposta sem tables.tab0 (sem dados).")
+
     rows = []
     for key in sorted(tab0.keys(), key=lambda x: int(x.replace("lin", ""))):
         row = tab0[key]
         rows.append([row.get("col0"), row.get("col1"), row.get("col2")])
 
+    if len(rows) < 2:
+        raise ValueError("tab0 sem linhas suficientes (header + dados).")
+
     header = rows[0]
     data_rows = rows[1:]
-    df = pd.DataFrame(data_rows, columns=header)
 
-    # Ajuste aqui conforme os nomes que vierem no header
-    # Objetivo: ficar com colunas Data, Fundo, CDI (ou algo equivalente)
-    rename = {}
-    for c in df.columns:
-        cl = str(c).lower()
-        if "data" in cl:
-            rename[c] = "Data"
-        elif "cdi" in cl:
-            rename[c] = "CDI"
-        else:
-            # sobra normalmente o fundo
-            rename[c] = "Fundo"
-    df = df.rename(columns=rename)
+    df_raw = pd.DataFrame(data_rows, columns=header)
+
+    # Fixa Data/Fundo/CDI por posição (robusto a header estranho)
+    if df_raw.shape[1] < 3:
+        raise ValueError(f"Esperava >=3 colunas (Data, Fundo, CDI). Veio: {df_raw.shape[1]}")
+
+    df = df_raw.iloc[:, :3].copy()
+    df.columns = ["Data", "Fundo", "CDI"]
 
     df["Data"] = pd.to_datetime(df["Data"], dayfirst=True, errors="coerce").dt.normalize()
-    for c in ["Fundo", "CDI"]:
-        if c in df.columns:
-            df[c] = to_numeric_ptbr(df[c])
+    df["Fundo"] = to_numeric_ptbr(df["Fundo"])
+    df["CDI"] = to_numeric_ptbr(df["CDI"])
 
     df = df.dropna(subset=["Data"]).sort_values("Data")
-
-    # Normaliza para base 1 (garante comparabilidade)
-    for c in ["Fundo", "CDI"]:
-        if c in df.columns and df[c].notna().any():
-            first = df[c].dropna().iloc[0]
-            if first != 0:
-                df[c] = df[c] / first
-
     return df
 
 def montar_retornos(df_nivel: pd.DataFrame) -> pd.DataFrame:
-    df = df_nivel.copy().sort_values("Data")
-    out = df[["Data"]].copy()
+    if "Data" not in df_nivel.columns:
+        raise ValueError(f"df_nivel sem coluna 'Data'. Colunas: {df_nivel.columns.tolist()}")
 
+    df = df_nivel.copy().sort_values("Data")
+
+    out = df[["Data"]].copy()
     for col in ["Fundo", "CDI"]:
         if col in df.columns:
             out[f"{col}_nivel"] = df[col]
             out[f"{col}_ret_diario"] = df[col].pct_change()
-            # acumulado a partir do nível (base 1): acum = nível - 1
-            out[f"{col}_ret_acum"] = df[col] - 1
-
+            out[f"{col}_ret_acum"] = df[col] - 1  # base 1 -> retorno acumulado
     return out
 
 if use_cmd:
@@ -617,13 +610,13 @@ if use_cmd:
     else:
         modo = st.radio(
             "O que plotar?",
-            ["PL", "Retorno diário", "Retorno acumulado"],
+            ["PL", "Cota (base 1)", "Retorno diário", "Retorno acumulado"],
             horizontal=True
         )
 
         try:
             if modo == "PL":
-                # reutiliza sua função existente
+                # Reaproveita o que você já tinha para PL
                 if df_pl_cmd is None or df_pl_cmd.empty:
                     df_pl_cmd = carregar_pl_comdinheiro(user, pwd)
                 fig = px.line(df_pl_cmd, x="Data", y="PL", title="PL via Comdinheiro", markers=True)
@@ -633,13 +626,19 @@ if use_cmd:
                 df_nivel = carregar_cotas_cmd(user, pwd)
                 df_ret = montar_retornos(df_nivel)
 
-                if modo == "Retorno diário":
-                    ycols = [c for c in df_ret.columns if c.endswith("_ret_diario")]
-                    fig = px.line(df_ret, x="Data", y=ycols, title="Retorno diário (Fundo vs CDI)")
+                if modo == "Cota (base 1)":
+                    ycols = [c for c in df_ret.columns if c.endswith("_nivel")]
+                    fig = px.line(df_ret, x="Data", y=ycols, title="Cota/Índice (base 1): Fundo vs CDI", markers=True)
                     st.plotly_chart(fig, use_container_width=True)
-                else:
+
+                elif modo == "Retorno diário":
+                    ycols = [c for c in df_ret.columns if c.endswith("_ret_diario")]
+                    fig = px.line(df_ret, x="Data", y=ycols, title="Retorno diário: Fundo vs CDI", markers=False)
+                    st.plotly_chart(fig, use_container_width=True)
+
+                else:  # Retorno acumulado
                     ycols = [c for c in df_ret.columns if c.endswith("_ret_acum")]
-                    fig = px.line(df_ret, x="Data", y=ycols, title="Retorno acumulado (Fundo vs CDI)")
+                    fig = px.line(df_ret, x="Data", y=ycols, title="Retorno acumulado: Fundo vs CDI", markers=True)
                     st.plotly_chart(fig, use_container_width=True)
 
                 with st.expander("Dados (Comdinheiro)"):
