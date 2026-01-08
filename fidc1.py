@@ -518,11 +518,95 @@ with colE:
 st.divider()
 
 # =========================
-# (Opcional) Evolução do PL via Comdinheiro
+# (Opcional) Comdinheiro: PL / Cota / Retornos
 # =========================
-st.subheader("Evolução do PL (Comdinheiro) – opcional")
+st.subheader("Evolução (Comdinheiro) – opcional")
 
 use_cmd = st.toggle("Consultar Comdinheiro", value=False)
+
+@st.cache_data(ttl=60*30)
+def carregar_cotas_cmd(username: str, password: str) -> pd.DataFrame:
+    """
+    Baixa série de níveis (base 1) para o fundo e CDI via HistoricoCotacao002.
+    Observação: a API retorna tabelas tab0/linX/colY.
+    """
+    url = "https://api.comdinheiro.com.br/v1/ep1/import-data"
+    headers = {"Content-Type": "application/x-www-form-urlencoded"}
+
+    payload = (
+        f"username={username}"
+        f"&password={password}"
+        "&URL=HistoricoCotacao002.php%3F%26x%3D60800845000193_unica%2BCDI"
+        "%26data_ini%3D15072025%26data_fim%3Ddmenos2%26pagina%3D1"
+        "%26d%3DMOEDA_ORIGINAL%26g%3D1%26m%3D0"
+        "%26info_desejada%3Dnumero_indice"
+        "%26retorno%3Ddiscreto%26tipo_data%3Ddu_br"
+        "%26tipo_ajuste%3Dtodosajustes%26num_casas%3D8%26enviar_email%3D0"
+        "%26ordem_legenda%3D1%26cabecalho_excel%3Dmodo1"
+        "%26classes_ativos%3Dfklk448oj5v5r"
+        "%26ordem_data%3D0%26rent_acum%3Drent_acum"
+        "%26preco_nd_ant%3D0%26base_num_indice%3D1%26flag_num_indice%3D0"
+        "%26eixo_x%3DData%26startX%3D0%26max_list_size%3D20"
+        "%26line_width%3D2%26tipo_grafico%3Dline%26tooltip%3Dunica"
+        "&format=json3"
+    )
+    r = requests.post(url, data=payload, headers=headers, timeout=30)
+    r.raise_for_status()
+    data = r.json()
+
+    tables = data.get("tables", {})
+    tab0 = tables.get("tab0", {})
+    rows = []
+    for key in sorted(tab0.keys(), key=lambda x: int(x.replace("lin", ""))):
+        row = tab0[key]
+        rows.append([row.get("col0"), row.get("col1"), row.get("col2")])
+
+    header = rows[0]
+    data_rows = rows[1:]
+    df = pd.DataFrame(data_rows, columns=header)
+
+    # Ajuste aqui conforme os nomes que vierem no header
+    # Objetivo: ficar com colunas Data, Fundo, CDI (ou algo equivalente)
+    rename = {}
+    for c in df.columns:
+        cl = str(c).lower()
+        if "data" in cl:
+            rename[c] = "Data"
+        elif "cdi" in cl:
+            rename[c] = "CDI"
+        else:
+            # sobra normalmente o fundo
+            rename[c] = "Fundo"
+    df = df.rename(columns=rename)
+
+    df["Data"] = pd.to_datetime(df["Data"], dayfirst=True, errors="coerce").dt.normalize()
+    for c in ["Fundo", "CDI"]:
+        if c in df.columns:
+            df[c] = to_numeric_ptbr(df[c])
+
+    df = df.dropna(subset=["Data"]).sort_values("Data")
+
+    # Normaliza para base 1 (garante comparabilidade)
+    for c in ["Fundo", "CDI"]:
+        if c in df.columns and df[c].notna().any():
+            first = df[c].dropna().iloc[0]
+            if first != 0:
+                df[c] = df[c] / first
+
+    return df
+
+def montar_retornos(df_nivel: pd.DataFrame) -> pd.DataFrame:
+    df = df_nivel.copy().sort_values("Data")
+    out = df[["Data"]].copy()
+
+    for col in ["Fundo", "CDI"]:
+        if col in df.columns:
+            out[f"{col}_nivel"] = df[col]
+            out[f"{col}_ret_diario"] = df[col].pct_change()
+            # acumulado a partir do nível (base 1): acum = nível - 1
+            out[f"{col}_ret_acum"] = df[col] - 1
+
+    return out
 
 if use_cmd:
     user = st.secrets.get("COMDINHEIRO_USER", "")
@@ -531,13 +615,36 @@ if use_cmd:
     if not user or not pwd:
         st.warning("Secrets não configurados. Desmarque o toggle ou configure o .streamlit/secrets.toml.")
     else:
-        try:
-            # reaproveita se já carregou acima; senão carrega agora
-            if df_pl_cmd is None or df_pl_cmd.empty:
-                df_pl_cmd = carregar_pl_comdinheiro(user, pwd)
+        modo = st.radio(
+            "O que plotar?",
+            ["PL", "Retorno diário", "Retorno acumulado"],
+            horizontal=True
+        )
 
-            fig = px.line(df_pl_cmd, x="Data", y="PL", title="PL via Comdinheiro", markers=True)
-            st.plotly_chart(fig, use_container_width=True)
+        try:
+            if modo == "PL":
+                # reutiliza sua função existente
+                if df_pl_cmd is None or df_pl_cmd.empty:
+                    df_pl_cmd = carregar_pl_comdinheiro(user, pwd)
+                fig = px.line(df_pl_cmd, x="Data", y="PL", title="PL via Comdinheiro", markers=True)
+                st.plotly_chart(fig, use_container_width=True)
+
+            else:
+                df_nivel = carregar_cotas_cmd(user, pwd)
+                df_ret = montar_retornos(df_nivel)
+
+                if modo == "Retorno diário":
+                    ycols = [c for c in df_ret.columns if c.endswith("_ret_diario")]
+                    fig = px.line(df_ret, x="Data", y=ycols, title="Retorno diário (Fundo vs CDI)")
+                    st.plotly_chart(fig, use_container_width=True)
+                else:
+                    ycols = [c for c in df_ret.columns if c.endswith("_ret_acum")]
+                    fig = px.line(df_ret, x="Data", y=ycols, title="Retorno acumulado (Fundo vs CDI)")
+                    st.plotly_chart(fig, use_container_width=True)
+
+                with st.expander("Dados (Comdinheiro)"):
+                    st.dataframe(df_ret, use_container_width=True)
+
         except Exception as e:
             st.error(f"Erro ao consultar Comdinheiro: {e}")
 else:
