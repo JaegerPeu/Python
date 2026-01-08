@@ -523,15 +523,10 @@ st.divider()
 st.subheader("Evolução (Comdinheiro) – opcional")
 
 use_cmd = st.toggle("Consultar Comdinheiro", value=False)
+debug_cmd = st.toggle("Debug Comdinheiro", value=False)
 
 @st.cache_data(ttl=60*30)
 def carregar_cotas_cmd(username: str, password: str) -> pd.DataFrame:
-    """
-    HistoricoCotacao002: retorna numero_indice com base_num_indice=1 para:
-    - Fundo (col1)
-    - CDI   (col2)
-    lin0 é header e vem com col0 vazio, então pulamos lin0 e lemos col0/1/2. [page:2]
-    """
     url = "https://api.comdinheiro.com.br/v1/ep1/import-data"
     headers = {"Content-Type": "application/x-www-form-urlencoded"}
 
@@ -548,7 +543,7 @@ def carregar_cotas_cmd(username: str, password: str) -> pd.DataFrame:
         "%26classes_ativos%3Dfklk448oj5v5r"
         "%26ordem_data%3D0%26rent_acum%3Drent_acum"
         "%26preco_nd_ant%3D0%26base_num_indice%3D1%26flag_num_indice%3D0"
-        "%26eixo_x%3DData%26startX%3D0%26max_list_size%3D20"
+        "%26eixo_x%3DData%26startX%3D0%26max_list_size%3D5000"
         "%26line_width%3D2%26tipo_grafico%3Dline%26tooltip%3Dunica"
         "&format=json3"
     )
@@ -559,19 +554,29 @@ def carregar_cotas_cmd(username: str, password: str) -> pd.DataFrame:
 
     tab0 = data.get("tables", {}).get("tab0", {})
     if not tab0:
-        raise ValueError("Resposta sem tables.tab0 (sem dados).")
+        return pd.DataFrame(columns=["Data", "Fundo", "CDI"])
 
-    # lê as linhas (pula header lin0)
+    # ordena lin0..linN, pula lin0 (header)
+    keys = sorted(
+        [k for k in tab0.keys() if str(k).startswith("lin")],
+        key=lambda x: int(str(x).replace("lin", ""))
+    )
+
     rows = []
-    for key in sorted(tab0.keys(), key=lambda x: int(x.replace("lin", ""))):
-        if key == "lin0":
+    for k in keys:
+        if k == "lin0":
             continue
-        row = tab0[key]
-        rows.append([row.get("col0"), row.get("col1"), row.get("col2")])
+        row = tab0.get(k, {})
+        rows.append({
+            "Data": row.get("col0"),
+            "Fundo": row.get("col1"),
+            "CDI": row.get("col2"),
+        })
 
-    df = pd.DataFrame(rows, columns=["Data", "Fundo", "CDI"])
+    df = pd.DataFrame(rows)
 
-    df["Data"] = pd.to_datetime(df["Data"], format="%d/%m/%Y", errors="coerce").dt.normalize()
+    # parse e limpeza
+    df["Data"] = pd.to_datetime(df["Data"].astype(str).str.strip(), dayfirst=True, errors="coerce").dt.normalize()
     df["Fundo"] = to_numeric_ptbr(df["Fundo"])
     df["CDI"] = to_numeric_ptbr(df["CDI"])
 
@@ -579,19 +584,20 @@ def carregar_cotas_cmd(username: str, password: str) -> pd.DataFrame:
     return df
 
 def montar_retornos(df_nivel: pd.DataFrame) -> pd.DataFrame:
-    df = df_nivel.copy().sort_values("Data")
+    if df_nivel is None or df_nivel.empty:
+        return pd.DataFrame()
 
+    df = df_nivel.copy().sort_values("Data")
     out = df[["Data"]].copy()
 
-    # níveis base 1 (já acumulados)
+    # Níveis base 1 (já acumulados)
     out["Fundo_nivel"] = df["Fundo"]
     out["CDI_nivel"] = df["CDI"]
 
-    # retorno diário (discreto)
+    # Retornos
     out["Fundo_ret_diario"] = df["Fundo"].pct_change()
     out["CDI_ret_diario"] = df["CDI"].pct_change()
 
-    # retorno acumulado desde o início da série (base 1)
     out["Fundo_ret_acum"] = df["Fundo"] - 1
     out["CDI_ret_acum"] = df["CDI"] - 1
 
@@ -610,17 +616,52 @@ if use_cmd:
             horizontal=True
         )
 
+        # Ajuda quando cache “gruda” vazio
+        cols_btn = st.columns(2)
+        with cols_btn[0]:
+            if st.button("Limpar cache Comdinheiro (cotas)"):
+                carregar_cotas_cmd.clear()
+        with cols_btn[1]:
+            if st.button("Limpar cache geral"):
+                st.cache_data.clear()
+
         try:
             if modo == "PL":
+                # Reaproveita sua função existente de PL
                 if df_pl_cmd is None or df_pl_cmd.empty:
                     df_pl_cmd = carregar_pl_comdinheiro(user, pwd)
 
-                fig = px.line(df_pl_cmd, x="Data", y="PL", title="PL via Comdinheiro", markers=True)
-                st.plotly_chart(fig, use_container_width=True)
+                if df_pl_cmd is None or df_pl_cmd.empty:
+                    st.warning("PL vazio (Comdinheiro).")
+                else:
+                    fig = px.line(df_pl_cmd, x="Data", y="PL", title="PL via Comdinheiro", markers=True)
+                    st.plotly_chart(fig, use_container_width=True)
+
+                    if debug_cmd:
+                        st.dataframe(df_pl_cmd.tail(30), use_container_width=True)
 
             else:
                 df_nivel = carregar_cotas_cmd(user, pwd)
+
+                if debug_cmd:
+                    st.write("df_nivel.shape:", df_nivel.shape)
+                    st.write("df_nivel.dtypes:", df_nivel.dtypes)
+                    st.dataframe(df_nivel.head(30), use_container_width=True)
+                    st.dataframe(df_nivel.tail(30), use_container_width=True)
+
+                if df_nivel is None or df_nivel.empty:
+                    st.warning("Cotas vazias (Comdinheiro). Ative Debug para inspecionar.")
+                    st.stop()
+
                 df_ret = montar_retornos(df_nivel)
+
+                if debug_cmd:
+                    st.write("df_ret.shape:", df_ret.shape)
+                    st.dataframe(df_ret.head(30), use_container_width=True)
+
+                if df_ret.empty:
+                    st.warning("Retornos vazios após transformação.")
+                    st.stop()
 
                 if modo == "Cota (base 1)":
                     fig = px.line(
@@ -656,4 +697,3 @@ if use_cmd:
             st.error(f"Erro ao consultar Comdinheiro: {e}")
 else:
     st.caption("Desligado.")
-
