@@ -527,9 +527,10 @@ use_cmd = st.toggle("Consultar Comdinheiro", value=False)
 @st.cache_data(ttl=60*30)
 def carregar_cotas_cmd(username: str, password: str) -> pd.DataFrame:
     """
-    HistoricoCotacao002: retorna numero_indice (base 1) para Fundo e CDI.
-    Parse robusto: lin0 vem como header com col0 vazio, então pulamos lin0 e
-    lemos diretamente col0/col1/col2 das linhas de dados. [page:0]
+    HistoricoCotacao002: retorna numero_indice com base_num_indice=1 para:
+    - Fundo (col1)
+    - CDI   (col2)
+    lin0 é header e vem com col0 vazio, então pulamos lin0 e lemos col0/1/2. [page:2]
     """
     url = "https://api.comdinheiro.com.br/v1/ep1/import-data"
     headers = {"Content-Type": "application/x-www-form-urlencoded"}
@@ -560,16 +561,17 @@ def carregar_cotas_cmd(username: str, password: str) -> pd.DataFrame:
     if not tab0:
         raise ValueError("Resposta sem tables.tab0 (sem dados).")
 
+    # lê as linhas (pula header lin0)
     rows = []
     for key in sorted(tab0.keys(), key=lambda x: int(x.replace("lin", ""))):
-        if key == "lin0":  # header: {'col0':'', 'col1':'...unica', 'col2':'CDI'}
+        if key == "lin0":
             continue
         row = tab0[key]
         rows.append([row.get("col0"), row.get("col1"), row.get("col2")])
 
     df = pd.DataFrame(rows, columns=["Data", "Fundo", "CDI"])
 
-    df["Data"] = pd.to_datetime(df["Data"], dayfirst=True, errors="coerce").dt.normalize()
+    df["Data"] = pd.to_datetime(df["Data"], format="%d/%m/%Y", errors="coerce").dt.normalize()
     df["Fundo"] = to_numeric_ptbr(df["Fundo"])
     df["CDI"] = to_numeric_ptbr(df["CDI"])
 
@@ -577,17 +579,22 @@ def carregar_cotas_cmd(username: str, password: str) -> pd.DataFrame:
     return df
 
 def montar_retornos(df_nivel: pd.DataFrame) -> pd.DataFrame:
-    if "Data" not in df_nivel.columns:
-        raise ValueError(f"df_nivel sem coluna 'Data'. Colunas: {df_nivel.columns.tolist()}")
-
     df = df_nivel.copy().sort_values("Data")
 
     out = df[["Data"]].copy()
-    for col in ["Fundo", "CDI"]:
-        if col in df.columns:
-            out[f"{col}_nivel"] = df[col]                    # base 1
-            out[f"{col}_ret_diario"] = df[col].pct_change()  # retorno diário
-            out[f"{col}_ret_acum"] = df[col] - 1             # retorno acumulado
+
+    # níveis base 1 (já acumulados)
+    out["Fundo_nivel"] = df["Fundo"]
+    out["CDI_nivel"] = df["CDI"]
+
+    # retorno diário (discreto)
+    out["Fundo_ret_diario"] = df["Fundo"].pct_change()
+    out["CDI_ret_diario"] = df["CDI"].pct_change()
+
+    # retorno acumulado desde o início da série (base 1)
+    out["Fundo_ret_acum"] = df["Fundo"] - 1
+    out["CDI_ret_acum"] = df["CDI"] - 1
+
     return out
 
 if use_cmd:
@@ -605,39 +612,48 @@ if use_cmd:
 
         try:
             if modo == "PL":
-                # PL: reaproveita sua função existente
                 if df_pl_cmd is None or df_pl_cmd.empty:
                     df_pl_cmd = carregar_pl_comdinheiro(user, pwd)
 
                 fig = px.line(df_pl_cmd, x="Data", y="PL", title="PL via Comdinheiro", markers=True)
                 st.plotly_chart(fig, use_container_width=True)
 
-                with st.expander("Dados (PL)"):
-                    st.dataframe(df_pl_cmd, use_container_width=True)
-
             else:
                 df_nivel = carregar_cotas_cmd(user, pwd)
                 df_ret = montar_retornos(df_nivel)
 
                 if modo == "Cota (base 1)":
-                    ycols = [c for c in df_ret.columns if c.endswith("_nivel")]
-                    fig = px.line(df_ret, x="Data", y=ycols, title="Cota/Índice (base 1): Fundo vs CDI", markers=True)
+                    fig = px.line(
+                        df_ret, x="Data",
+                        y=["Fundo_nivel", "CDI_nivel"],
+                        title="Cota/Índice (base 1): Fundo vs CDI",
+                        markers=True
+                    )
                     st.plotly_chart(fig, use_container_width=True)
 
                 elif modo == "Retorno diário":
-                    ycols = [c for c in df_ret.columns if c.endswith("_ret_diario")]
-                    fig = px.line(df_ret, x="Data", y=ycols, title="Retorno diário: Fundo vs CDI", markers=False)
+                    fig = px.line(
+                        df_ret, x="Data",
+                        y=["Fundo_ret_diario", "CDI_ret_diario"],
+                        title="Retorno diário: Fundo vs CDI",
+                        markers=False
+                    )
                     st.plotly_chart(fig, use_container_width=True)
 
                 else:  # Retorno acumulado
-                    ycols = [c for c in df_ret.columns if c.endswith("_ret_acum")]
-                    fig = px.line(df_ret, x="Data", y=ycols, title="Retorno acumulado: Fundo vs CDI", markers=True)
+                    fig = px.line(
+                        df_ret, x="Data",
+                        y=["Fundo_ret_acum", "CDI_ret_acum"],
+                        title="Retorno acumulado: Fundo vs CDI",
+                        markers=True
+                    )
                     st.plotly_chart(fig, use_container_width=True)
 
-                with st.expander("Dados (Cotas/Retornos)"):
+                with st.expander("Dados (Comdinheiro)"):
                     st.dataframe(df_ret, use_container_width=True)
 
         except Exception as e:
             st.error(f"Erro ao consultar Comdinheiro: {e}")
 else:
     st.caption("Desligado.")
+
