@@ -13,9 +13,9 @@ st.set_page_config(page_title="Markowitz - Fronteira Eficiente", layout="wide")
 st.sidebar.title("Parâmetros")
 
 periodos_ano = st.sidebar.number_input(
-    "Períodos por ano (só p/ converter RF a.a.)",
+    "Períodos por ano (anualização + RF)",
     min_value=1, max_value=10_000, value=252, step=1,
-    help="Ex.: 252 (diário), 12 (mensal). Usado apenas para converter RF a.a. para RF por período."
+    help="Ex.: 252 (diário), 12 (mensal)."
 )
 
 seed = st.sidebar.number_input("Seed (Monte Carlo)", min_value=0, max_value=10_000, value=7, step=1)
@@ -36,7 +36,6 @@ rf_aa_pct = 0.0
 if opt_mode == "Maximizar Sharpe":
     rf_aa_pct = st.sidebar.number_input("RF (% a.a.)", value=12.0, step=0.25, format="%.2f")
 
-target_vol_pct = None  # vol por período (%)
 # =========================================================
 # 1) Dados (hard-coded por enquanto)
 # =========================================================
@@ -50,7 +49,7 @@ c = np.array([120.00,116.95,114.79,116.81,113.81,110.95,112.07,116.70,124.23,119
 prec = pd.DataFrame({"a": a, "b": b, "c": c})
 
 # =========================================================
-# 2) Retornos / média / cov (POR PERÍODO)
+# 2) Retornos / média / cov (por período)
 # =========================================================
 ri = prec / prec.shift(1) - 1
 ri = ri.dropna()
@@ -58,9 +57,18 @@ ri = ri.dropna()
 mu = ri.mean().values       # por período
 S = ri.cov().values         # por período
 
-def port_ret(w): return float(np.dot(w, mu))              # por período (decimal)
-def port_vol(w): return float(np.sqrt(w.T @ S @ w))       # por período (decimal)
-def obj_var(w):  return float(w.T @ S @ w)                # variância por período
+def port_ret_per(w): return float(np.dot(w, mu))              # por período (decimal)
+def port_vol_per(w): return float(np.sqrt(w.T @ S @ w))       # por período (decimal)
+def obj_var_per(w):  return float(w.T @ S @ w)                # variância por período
+
+m = float(periodos_ano)
+
+# anualização para EXIBIÇÃO/PLOT (aceita escalar ou array)
+def to_ret_aa(x):
+    return np.asarray(x, dtype=float) * m
+
+def to_vol_aa(x):
+    return np.asarray(x, dtype=float) * np.sqrt(m)
 
 # =========================================================
 # 3) Suitability: bounds por ativo em %
@@ -73,7 +81,10 @@ if "bounds_df_pct" not in st.session_state:
         index=ativo
     )
 
-bounds_df_pct = st.sidebar.data_editor(st.session_state["bounds_df_pct"], use_container_width=True).astype(float)
+bounds_df_pct = st.sidebar.data_editor(
+    st.session_state["bounds_df_pct"],
+    use_container_width=True
+).astype(float)
 
 if (bounds_df_pct["min_%"] > bounds_df_pct["max_%"]).any():
     st.error("Há ativos com min_% > max_%. Corrija os limites.")
@@ -98,8 +109,11 @@ def feasible_start():
     s = slack.sum()
     if rem < -1e-10 or s <= 1e-12:
         return np.full(n, 1 / n)
+
     w = w + rem * (slack / s)
     w = np.minimum(np.maximum(w, lb), ub)
+
+    # ajuste final de soma
     diff = 1.0 - w.sum()
     j = int(np.argmax(ub - w))
     w[j] = np.minimum(ub[j], w[j] + diff)
@@ -108,16 +122,16 @@ def feasible_start():
 x0 = feasible_start()
 
 # =========================================================
-# 4) RF a.a. -> RF por período (para Sharpe)
+# 4) RF a.a. -> RF por período (Sharpe)
 # =========================================================
 rf_aa = rf_aa_pct / 100
-rf_per = (1.0 + rf_aa) ** (1.0 / float(periodos_ano)) - 1.0  # por período
+rf_per = (1.0 + rf_aa) ** (1.0 / m) - 1.0
 
 # =========================================================
-# 5) Min/max retorno viável + GMV robusto
+# 5) Min/max retorno viável (por período) + GMV robusto
 # =========================================================
 def solve_minmax_return(sign=+1):
-    obj = lambda w: sign * port_ret(w)
+    obj = lambda w: sign * port_ret_per(w)
     return solver.minimize(
         obj, x0, method="SLSQP",
         bounds=bounds, constraints=cons_sum1,
@@ -130,16 +144,17 @@ if not (res_minR.success and res_maxR.success):
     st.error("Falha ao achar retorno min/max viável. Bounds apertados ou numérico.")
     st.stop()
 
-ret_min = port_ret(res_minR.x)
-ret_max = port_ret(res_maxR.x)
+ret_min_per = port_ret_per(res_minR.x)
+ret_max_per = port_ret_per(res_maxR.x)
 
 np.random.seed(int(seed))
 
-def sample_feasible_weights(k, max_tries=500_000):
+def sample_feasible_weights(k, max_tries=600_000):
     out = []
     rem = 1.0 - lb.sum()
     if rem < 0:
         return np.array(out)
+
     for _ in range(max_tries):
         y = np.random.dirichlet(np.ones(n))
         w = lb + rem * y
@@ -159,12 +174,12 @@ def solve_gmv_multistart(n_tries=40):
     best_res = None
     for w0 in starts:
         res = solver.minimize(
-            obj_var, w0, method="SLSQP",
+            obj_var_per, w0, method="SLSQP",
             bounds=bounds, constraints=cons_sum1,
             options={"maxiter": 10000, "ftol": 1e-14}
         )
         if res.success:
-            v = port_vol(res.x)
+            v = port_vol_per(res.x)
             if (best_vol is None) or (v < best_vol):
                 best_vol = v
                 best_res = res
@@ -176,70 +191,79 @@ if (res_gmv is None) or (not res_gmv.success):
     st.stop()
 
 w_gmv = res_gmv.x
-ret_gmv = port_ret(w_gmv)
-vol_gmv = port_vol(w_gmv)
+ret_gmv_per = port_ret_per(w_gmv)
+vol_gmv_per = port_vol_per(w_gmv)
 
 # =========================================================
-# 6) Fronteira (por período)
+# 6) Fronteira (por período) -> exibe anualizada
 # =========================================================
-faixa_ret = np.linspace(ret_min, ret_max, n_front)
-faixa_ret = np.unique(np.sort(np.append(faixa_ret, ret_gmv)))
+faixa_ret_per = np.linspace(ret_min_per, ret_max_per, n_front)
+faixa_ret_per = np.unique(np.sort(np.append(faixa_ret_per, ret_gmv_per)))
 
-risk_curve, ret_curve, w_curve = [], [], []
+risk_curve_per, ret_curve_per, w_curve = [], [], []
 x_front = x0.copy()
 
-for alvo in faixa_ret:
+for alvo in faixa_ret_per:
     cons = (
         {'type': 'eq', 'fun': lambda w: np.sum(w) - 1},
-        {'type': 'eq', 'fun': lambda w, r=alvo: port_ret(w) - r},
+        {'type': 'eq', 'fun': lambda w, r=alvo: port_ret_per(w) - r},
     )
     res = solver.minimize(
-        port_vol, x_front, method="SLSQP",
+        port_vol_per, x_front, method="SLSQP",
         bounds=bounds, constraints=cons,
         options={"maxiter": 6000, "ftol": 1e-12}
     )
     if res.success:
-        risk_curve.append(res.fun)
-        ret_curve.append(alvo)
+        risk_curve_per.append(res.fun)
+        ret_curve_per.append(alvo)
         w_curve.append(res.x)
         x_front = res.x
 
-risk_curve = np.array(risk_curve, dtype=float)
-ret_curve = np.array(ret_curve, dtype=float)
+risk_curve_per = np.array(risk_curve_per, dtype=float)
+ret_curve_per = np.array(ret_curve_per, dtype=float)
 w_curve = np.array(w_curve, dtype=float)
 
-mask_ef = ret_curve >= ret_gmv
-risk_ef, ret_ef = risk_curve[mask_ef], ret_curve[mask_ef]
+mask_ef = ret_curve_per >= ret_gmv_per
+risk_ef_per, ret_ef_per = risk_curve_per[mask_ef], ret_curve_per[mask_ef]
+
+risk_curve_aa = to_vol_aa(risk_curve_per)
+ret_curve_aa = to_ret_aa(ret_curve_per)
+risk_ef_aa = to_vol_aa(risk_ef_per)
+ret_ef_aa = to_ret_aa(ret_ef_per)
 
 # =========================================================
-# 7) Risco-meta (% por período)
+# 7) Risco-meta (input em % a.a.) -> converte p/ por período
 # =========================================================
+target_vol_aa = None
+target_vol_per = None
+
 if opt_mode == "Risco-meta (vol <= alvo) e maximiza retorno":
-    vmin = float(np.min(risk_curve)) if len(risk_curve) else float(vol_gmv)
-    vmax = float(np.max(risk_curve)) if len(risk_curve) else float(max(vmin * 3, vmin + 1e-6))
-    target_vol_pct = st.sidebar.slider(
-        "Risco-meta (% por período)",
-        min_value=float(vmin * 100),
-        max_value=float(vmax * 100),
-        value=float(vol_gmv * 100),
-        step=float(max((vmax - vmin) * 100 / 200, 0.01))
-    )
+    vmin_aa = float(np.min(risk_curve_aa)) if len(risk_curve_aa) else float(to_vol_aa(vol_gmv_per))
+    vmax_aa = float(np.max(risk_curve_aa)) if len(risk_curve_aa) else max(vmin_aa * 3, vmin_aa + 1e-6)
 
-target_vol = (target_vol_pct / 100) if (target_vol_pct is not None) else None
+    target_vol_aa_pct = st.sidebar.slider(
+        "Risco-meta (% a.a.)",
+        min_value=float(vmin_aa * 100),
+        max_value=float(vmax_aa * 100),
+        value=float(float(to_vol_aa(vol_gmv_per)) * 100),
+        step=float(max((vmax_aa - vmin_aa) * 100 / 200, 0.01))
+    )
+    target_vol_aa = target_vol_aa_pct / 100
+    target_vol_per = target_vol_aa / np.sqrt(m)
 
 # =========================================================
-# 8) Carteira otimizada
+# 8) Carteira otimizada (por período) -> exibe anualizada
 # =========================================================
 def solve_user_portfolio():
     if opt_mode == "Minimizar volatilidade (GMV)":
         return True, w_gmv, "GMV"
 
-    if opt_mode == "Maximizar Sharpe (RF a.a. convertida)":
+    if opt_mode == "Maximizar Sharpe":
         def neg_sharpe(w):
-            v = port_vol(w)
+            v = port_vol_per(w)
             if v <= 1e-12:
                 return 1e9
-            return -((port_ret(w) - rf_per) / v)
+            return -((port_ret_per(w) - rf_per) / v)
 
         res = solver.minimize(
             neg_sharpe, x0, method="SLSQP",
@@ -251,10 +275,10 @@ def solve_user_portfolio():
     if opt_mode == "Risco-meta (vol <= alvo) e maximiza retorno":
         cons = (
             {'type': 'eq', 'fun': lambda w: np.sum(w) - 1},
-            {'type': 'ineq', 'fun': lambda w, tv=target_vol: tv - port_vol(w)},
+            {'type': 'ineq', 'fun': lambda w, tv=target_vol_per: tv - port_vol_per(w)},
         )
         res = solver.minimize(
-            lambda w: -port_ret(w), x0, method="SLSQP",
+            lambda w: -port_ret_per(w), x0, method="SLSQP",
             bounds=bounds, constraints=cons,
             options={"maxiter": 10000, "ftol": 1e-12}
         )
@@ -267,105 +291,118 @@ if not ok:
     st.error("A otimização não convergiu com os bounds atuais. Tente relaxar limites ou mudar objetivo.")
     st.stop()
 
-ret_opt = port_ret(w_opt)
-vol_opt = port_vol(w_opt)
+ret_opt_per = port_ret_per(w_opt)
+vol_opt_per = port_vol_per(w_opt)
 
-# Sharpe por período e (opcional) anualizado
-shp_per = ((ret_opt - rf_per) / vol_opt) if (vol_opt > 1e-12) else np.nan
-shp_aa = shp_per * np.sqrt(float(periodos_ano)) if np.isfinite(shp_per) else np.nan
+ret_min_aa = float(to_ret_aa(ret_min_per))
+ret_max_aa = float(to_ret_aa(ret_max_per))
+
+ret_gmv_aa = float(to_ret_aa(ret_gmv_per))
+vol_gmv_aa = float(to_vol_aa(vol_gmv_per))
+
+ret_opt_aa = float(to_ret_aa(ret_opt_per))
+vol_opt_aa = float(to_vol_aa(vol_opt_per))
+
+# Sharpe por período e anualizado
+shp_per = ((ret_opt_per - rf_per) / vol_opt_per) if (vol_opt_per > 1e-12) else np.nan
+shp_aa = shp_per * np.sqrt(m) if np.isfinite(shp_per) else np.nan
 
 # =========================================================
-# 9) Métricas (2 linhas)
+# 9) Métricas (2 linhas) em % a.a.
 # =========================================================
-st.title("Markowitz")
+st.title("Markowitz (retorno e risco anualizados)")
 
 r1a, r1b = st.columns(2)
-r1a.metric("Retorno mínimo viável (% por período)", f"{ret_min:.2%}")
-r1b.metric("Retorno máximo viável (% por período)", f"{ret_max:.2%}")
+r1a.metric("Retorno mínimo viável (% a.a.)", f"{ret_min_aa:.2%}")
+r1b.metric("Retorno máximo viável (% a.a.)", f"{ret_max_aa:.2%}")
 
 r2a, r2b = st.columns(2)
-r2a.metric("GMV (ret, vol) por período", f"{ret_gmv:.2%} | {vol_gmv:.2%}")
-r2b.metric("Otimizada (ret, vol) por período", f"{ret_opt:.2%} | {vol_opt:.2%}")
+r2a.metric("GMV (ret, vol) % a.a.", f"{ret_gmv_aa:.2%} | {vol_gmv_aa:.2%}")
+r2b.metric("Otimizada (ret, vol) % a.a.", f"{ret_opt_aa:.2%} | {vol_opt_aa:.2%}")
 
 st.subheader(f"Pesos da carteira otimizada ({opt_mode})")
-st.dataframe(
-    (pd.Series(w_opt, index=ativo) * 100).round(2).to_frame("w (%)"),
-    use_container_width=True
-)
+st.dataframe((pd.Series(w_opt, index=ativo) * 100).round(2).to_frame("w (%)"), use_container_width=True)
 
-if opt_mode == "Maximizar Sharpe (RF a.a. convertida)":
+if opt_mode == "Maximizar Sharpe":
     st.caption(
-        f"RF: {rf_aa_pct:.2f}% a.a.  ⇒  {rf_per:.4%} por período | "
+        f"RF: {rf_aa_pct:.2f}% a.a. ⇒ {rf_per:.4%} por período | "
         f"Sharpe: {shp_per:.4f} (por período), {shp_aa:.4f} (anualizado)"
     )
 
 # =========================================================
-# 10) Monte Carlo viável (para plot)
+# 10) Monte Carlo viável (por período) -> plota anualizado
 # =========================================================
 np.random.seed(int(seed))
 W = sample_feasible_weights(n_mc)
-mc_ret = np.array([port_ret(w) for w in W], dtype=float)
-mc_vol = np.array([port_vol(w) for w in W], dtype=float)
+
+if W.size == 0:
+    st.warning("Não consegui gerar pontos Monte Carlo viáveis com esses bounds (muito apertados).")
+
+mc_ret_per = np.array([port_ret_per(w) for w in W], dtype=float) if W.size else np.array([])
+mc_vol_per = np.array([port_vol_per(w) for w in W], dtype=float) if W.size else np.array([])
+
+mc_ret_aa = to_ret_aa(mc_ret_per)
+mc_vol_aa = to_vol_aa(mc_vol_per)
 
 # =========================================================
-# 11) Plotly com hover (tudo por período)
+# 11) Plotly com hover (eixos em % a.a.)
 # =========================================================
 fig = go.Figure()
 
-if len(mc_vol) > 0:
+if len(mc_vol_aa) > 0:
     fig.add_trace(go.Scatter(
-        x=mc_vol, y=mc_ret,
+        x=mc_vol_aa, y=mc_ret_aa,
         mode="markers",
-        name=f"Monte Carlo viável ({len(mc_vol)})",
+        name=f"Monte Carlo viável ({len(mc_vol_aa)})",
         marker=dict(size=6, color="black", opacity=0.30),
-        hovertemplate="Vol=%{x:.2%}<br>Ret=%{y:.2%}<extra></extra>"
+        hovertemplate="Vol a.a.=%{x:.2%}<br>Ret a.a.=%{y:.2%}<extra></extra>"
     ))
 
-if len(risk_curve) > 0:
+if len(risk_curve_aa) > 0:
     weights_hover = np.array([
         "<br>".join([f"{ativo[i]}={w[i]*100:.2f}%" for i in range(n)])
         for w in w_curve
     ], dtype=object)
 
     fig.add_trace(go.Scatter(
-        x=risk_curve, y=ret_curve,
+        x=risk_curve_aa, y=ret_curve_aa,
         mode="lines+markers",
         name="Curva completa (min risco p/ retorno)",
         marker=dict(size=5, color="red"),
         line=dict(width=3, color="red"),
         customdata=weights_hover,
-        hovertemplate="Vol=%{x:.2%}<br>Ret=%{y:.2%}<br>%{customdata}<extra></extra>"
+        hovertemplate="Vol a.a.=%{x:.2%}<br>Ret a.a.=%{y:.2%}<br>%{customdata}<extra></extra>"
     ))
 
-if len(risk_ef) > 0:
+if len(risk_ef_aa) > 0:
     fig.add_trace(go.Scatter(
-        x=risk_ef, y=ret_ef,
+        x=risk_ef_aa, y=ret_ef_aa,
         mode="lines",
         name="Fronteira eficiente (>= GMV)",
         line=dict(width=4, color="dodgerblue"),
-        hovertemplate="Vol=%{x:.2%}<br>Ret=%{y:.2%}<extra></extra>"
+        hovertemplate="Vol a.a.=%{x:.2%}<br>Ret a.a.=%{y:.2%}<extra></extra>"
     ))
 
 fig.add_trace(go.Scatter(
-    x=[vol_gmv], y=[ret_gmv],
+    x=[vol_gmv_aa], y=[ret_gmv_aa],
     mode="markers",
     name="GMV (mínima volatilidade)",
     marker=dict(size=14, color="green"),
-    hovertemplate="GMV<br>Vol=%{x:.2%}<br>Ret=%{y:.2%}<extra></extra>"
+    hovertemplate="GMV<br>Vol a.a.=%{x:.2%}<br>Ret a.a.=%{y:.2%}<extra></extra>"
 ))
 
 fig.add_trace(go.Scatter(
-    x=[vol_opt], y=[ret_opt],
+    x=[vol_opt_aa], y=[ret_opt_aa],
     mode="markers",
     name=f"Otimizada: {tag}",
     marker=dict(size=16, color="gold", line=dict(width=1, color="black"), symbol="star"),
-    hovertemplate="Otimizada<br>Vol=%{x:.2%}<br>Ret=%{y:.2%}<extra></extra>"
+    hovertemplate="Otimizada<br>Vol a.a.=%{x:.2%}<br>Ret a.a.=%{y:.2%}<extra></extra>"
 ))
 
 fig.update_layout(
     height=700,
-    xaxis=dict(title="Risco (Volatilidade) % por período", tickformat=".2%"),
-    yaxis=dict(title="Retorno Esperado % por período", tickformat=".2%"),
+    xaxis=dict(title="Risco (Volatilidade) % a.a.", tickformat=".2%"),
+    yaxis=dict(title="Retorno Esperado % a.a.", tickformat=".2%"),
     hovermode="closest",
     legend=dict(orientation="h"),
 )
