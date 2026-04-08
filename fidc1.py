@@ -525,8 +525,8 @@ st.subheader("Evolução do PL (Comdinheiro) – opcional")
 use_cmd = st.toggle("Consultar Comdinheiro", value=False)
 
 if use_cmd:
-    user = st.secrets.get("COMDINHEIRO_USER", "")
-    pwd = st.secrets.get("COMDINHEIRO_PASS", "")
+    username = st.secrets.get("COMDINHEIRO_USER", "")
+    password = st.secrets.get("COMDINHEIRO_PASS", "")
 
     if not user or not pwd:
         st.warning("Secrets não configurados. Desmarque o toggle ou configure o .streamlit/secrets.toml.")
