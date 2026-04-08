@@ -381,7 +381,7 @@ else:
     c1.metric("PL (micro, soma PL FUNDO)", fmt_brl(kpi["pl_micro"]))
 
 c3.metric("Nº de FIDCs", int(kpi["n_fidcs"]) if not pd.isna(kpi["n_fidcs"]) else "-")
-c2.metric("Taxa Adm", "0,8%")
+c2.metric("Taxa Adm", "1,0%")
 c4.metric("Nº de Ativos (macro)", int(kpi["n_ativos_macro"]) if not pd.isna(kpi["n_ativos_macro"]) else "-")
 
 c5.metric("PDD (ponderado)", fmt_pct(kpi["pdd_micro"]))
