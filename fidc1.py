@@ -228,7 +228,7 @@ def kpis_snapshot(df_micro_day: pd.DataFrame, df_macro_: pd.DataFrame) -> dict:
     sub_micro = df_micro_day["Sub_Ponderada"].sum() if "Sub_Ponderada" in df_micro_day.columns else np.nan
 
     # Macro (não histórico, pois macro no seu arquivo não tem data)
-    TX_ADM = 0.008  # 0,8%
+    TX_ADM = 0.01  # 0,8%
 
     if all(c in df_macro_.columns for c in ["pct", "Carrego"]):
         cdi_plus = (df_macro_["pct"] * df_macro_["Carrego"]).sum()
